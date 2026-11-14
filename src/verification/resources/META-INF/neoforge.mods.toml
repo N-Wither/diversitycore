@@ -1,0 +1,7 @@
+license="All Rights Reserved"
+
+[[mods]]
+modId="diversitycore_verification"
+version="1.0.0"
+displayName="Diversity Core Verification"
+description="Development-only content API verification fixtures. Never included in the production jar."
