@@ -12,6 +12,7 @@ public final class DiversityCore {
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public DiversityCore(IEventBus modEventBus) {
+        LOGGER.info("[Diversity Core] Registering contents...");
         ModRegistries.register(modEventBus);
     }
 }

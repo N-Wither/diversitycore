@@ -6,7 +6,6 @@ import net.aquiferic.diversitycore.api.registry.ContentRegistry;
 import net.aquiferic.diversitycore.api.registry.CropDefinition;
 import net.aquiferic.diversitycore.content.block.CropPlantBlock;
 import net.minecraft.advancements.predicates.StatePropertiesPredicate;
-import net.minecraft.client.data.models.model.ModelLocationUtils;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.data.CachedOutput;
@@ -87,7 +86,8 @@ public final class ModLootProvider implements DataProvider {
             }
         }
         table.apply(ApplyExplosionDecay.explosionDecay());
-        Identifier id = ModelLocationUtils.getModelLocation(block);
+        // Use the runtime loot table key; model IDs use a different "block/" prefix.
+        Identifier id = block.getLootTable().orElseThrow().identifier();
         writes.add(DataProvider.saveStable(cache, registries, LootTable.DIRECT_CODEC, table.build(), paths.json(id)));
     }
 

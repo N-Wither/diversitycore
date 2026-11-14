@@ -296,7 +296,7 @@ tasks.register('verifyCropResources') {
         ['crop_single', 'crop_tall', 'crop_water', 'crop_rice', 'crop_maximum'].each { name ->
             assert json(assets + 'blockstates/' + name + '.json').variants
             assert json(assets + 'items/' + name + '.json').model
-            assert json('data/diversitycore_verification/loot_table/block/' + name + '.json').pools
+            assert json('data/diversitycore_verification/loot_table/blocks/' + name + '.json').pools
         }
         assert json(assets + 'blockstates/crop_single.json').variants.size() == 8
         assert json(assets + 'blockstates/crop_maximum.json').variants.size() == 16
