@@ -7,16 +7,23 @@ import net.neoforged.neoforge.common.data.LanguageProvider;
 public final class ModLanguageProvider extends LanguageProvider {
     private final ContentRegistry content;
     private final String locale;
+    private final java.util.Map<String, String> translations;
 
     public ModLanguageProvider(PackOutput output, ContentRegistry content, String locale) {
+        this(output, content, locale, java.util.Map.of());
+    }
+
+    public ModLanguageProvider(PackOutput output, ContentRegistry content, String locale,
+            java.util.Map<String, String> translations) {
         super(output, content.namespace(), locale);
         this.content = content;
         this.locale = locale;
+        this.translations = java.util.Map.copyOf(translations);
     }
 
     @Override
     protected void addTranslations() {
-        add("itemGroup." + content.namespace(), "Diversity Core");
+        translations.forEach(this::add);
         for (var definition : content.itemDefinitions()) {
             String name = definition.names().get(locale);
             if (name != null) {

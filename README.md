@@ -7,7 +7,7 @@ A mod to accelerate my mod developing.
 - [Item/block registration API](docs/registry.md): [KubeJS](https://kubejs.com)-style fluent declarations with generated models, translations, tags and loot
 - [Recipe API](docs/recipes.md): fluent crafting, cooking, stonecutting and smithing declarations with generated unlock advancements
 - [Crop registration](docs/crops.md): staged growth, two-block crops, substrate tags, shallow-water planting, generated seeds and loot
-- A wrench which can break any block with tag `diversitycore:wrench_breakable`
+- A wrench: right-click to rotate blocks tagged `diversitycore:wrench_rotatable`; Shift + right-click to dismantle blocks tagged `diversitycore:wrench_breakable` (see [wrench usage](docs/wrench.md))
 - A power bank with infinity FE!
 
 ## Credits

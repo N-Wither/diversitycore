@@ -1,0 +1,12 @@
+{
+  "itemGroup.diversitycore": "Diversity Core",
+  "config.jade.plugin_diversitycore": "Diversity Core",
+  "config.jade.plugin_diversitycore.energy_bar": "Diversity-style energy bar",
+  "jade.diversitycore.infinite_energy": "INFINITE NRG!!!",
+  "jade.diversitycore.energy": "%s / %s FE",
+  "config.jade.plugin_diversitycore.energy_bar_all": "All",
+  "config.jade.plugin_diversitycore.energy_bar_true": "Diversity mods only",
+  "config.jade.plugin_diversitycore.energy_bar_false": "Off",
+  "config.jade.plugin_diversitycore.energy_bar_desc": "All: restyle energy data reported to Jade for any block. Diversity mods only: restyle blocks implementing EnergyBarProvider. Off: keep the original display.",
+  "jade.diversitycore.energy_with_unit": "%s / %s %s"
+}

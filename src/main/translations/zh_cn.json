@@ -1,0 +1,12 @@
+{
+  "itemGroup.diversitycore": "Diversity Core",
+  "config.jade.plugin_diversitycore": "Diversity Core",
+  "config.jade.plugin_diversitycore.energy_bar": "Diversity 风格能量条",
+  "jade.diversitycore.infinite_energy": "无限的能量！！！ ",
+  "jade.diversitycore.energy": "%s / %s FE",
+  "config.jade.plugin_diversitycore.energy_bar_all": "全部",
+  "config.jade.plugin_diversitycore.energy_bar_true": "仅 Diversity 模组",
+  "config.jade.plugin_diversitycore.energy_bar_false": "关闭",
+  "config.jade.plugin_diversitycore.energy_bar_desc": "全部：替换 Jade 识别到的所有方块能量显示。仅 Diversity 模组：仅替换实现 EnergyBarProvider 接口的方块。关闭：保留原始显示。",
+  "jade.diversitycore.energy_with_unit": "%s / %s %s"
+}

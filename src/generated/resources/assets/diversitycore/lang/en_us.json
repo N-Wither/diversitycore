@@ -1,5 +1,14 @@
 {
   "block.diversitycore.creative_power_bank": "Creative Power Bank",
+  "config.jade.plugin_diversitycore": "Diversity Core",
+  "config.jade.plugin_diversitycore.energy_bar": "Diversity-style energy bar",
+  "config.jade.plugin_diversitycore.energy_bar_all": "All",
+  "config.jade.plugin_diversitycore.energy_bar_desc": "All: restyle energy data reported to Jade for any block. Diversity mods only: restyle blocks implementing EnergyBarProvider. Off: keep the original display.",
+  "config.jade.plugin_diversitycore.energy_bar_false": "Off",
+  "config.jade.plugin_diversitycore.energy_bar_true": "Diversity mods only",
   "item.diversitycore.wrench": "Wrench",
-  "itemGroup.diversitycore": "Diversity Core"
+  "itemGroup.diversitycore": "Diversity Core",
+  "jade.diversitycore.energy": "%s / %s FE",
+  "jade.diversitycore.energy_with_unit": "%s / %s %s",
+  "jade.diversitycore.infinite_energy": "INFINITE NRG!!!"
 }

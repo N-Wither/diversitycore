@@ -1,0 +1,14 @@
+{
+  "values": [
+    "#minecraft:logs",
+    "minecraft:furnace",
+    "minecraft:blast_furnace",
+    "minecraft:smoker",
+    "minecraft:barrel",
+    "minecraft:dispenser",
+    "minecraft:dropper",
+    "minecraft:observer",
+    "minecraft:piston",
+    "minecraft:sticky_piston"
+  ]
+}

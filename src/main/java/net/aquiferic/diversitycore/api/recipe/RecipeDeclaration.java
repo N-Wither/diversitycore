@@ -24,7 +24,6 @@ import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
@@ -118,6 +117,7 @@ public abstract class RecipeDeclaration<S extends RecipeDeclaration<S>> {
 
     final ItemStackTemplate result(RecipeResult result, int count, RecipeOutput output) {
         var item = result.resolve(output.lookup(Registries.ITEM));
+        @SuppressWarnings("deprecation")
         var holder = output.lookup(Registries.ITEM).getOrThrow(item.builtInRegistryHolder().key());
         return new ItemStackTemplate(holder, count);
     }
@@ -130,6 +130,7 @@ public abstract class RecipeDeclaration<S extends RecipeDeclaration<S>> {
             }
             @Override public Advancement.Builder advancement() { return delegate.advancement(); }
             @Override public <T> HolderGetter<T> lookup(ResourceKey<? extends Registry<? extends T>> key) { return delegate.lookup(key); }
+            @SuppressWarnings("deprecation")
             @Override public <T> Stream<Holder.Reference<T>> listContextElements(ResourceKey<? extends Registry<? extends T>> key) {
                 return delegate.listContextElements(key);
             }

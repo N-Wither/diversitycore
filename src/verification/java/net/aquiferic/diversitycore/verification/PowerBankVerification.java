@@ -1,6 +1,16 @@
 package net.aquiferic.diversitycore.verification;
 
+import com.mojang.serialization.Codec;
 import java.util.EnumMap;
+import net.aquiferic.diversitycore.content.menu.CreativePowerBankMenu;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameType;
+import net.neoforged.neoforge.registries.DeferredItem;
+import net.neoforged.neoforge.transfer.energy.ItemAccessEnergyHandler;
 import java.util.function.Consumer;
 import net.aquiferic.diversitycore.content.blockentity.CreativePowerBankBlockEntity;
 import net.aquiferic.diversitycore.registry.ModBlockEntities;
@@ -31,6 +41,11 @@ import net.neoforged.neoforge.transfer.transaction.Transaction;
 /** Headless checks for the energy contract and real block-entity ticking. */
 public final class PowerBankVerification {
     private static final String MODID = "diversitycore_verification";
+    private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MODID);
+    private static final DeferredItem<Item> BATTERY = ITEMS.registerSimpleItem("charging_battery");
+    private static final DeferredRegister<DataComponentType<?>> COMPONENTS = DeferredRegister.create(Registries.DATA_COMPONENT_TYPE, MODID);
+    private static final DeferredHolder<DataComponentType<?>, DataComponentType<Integer>> ENERGY = COMPONENTS.register(
+        "battery_energy", () -> DataComponentType.<Integer>builder().persistent(Codec.INT).networkSynchronized(ByteBufCodecs.VAR_INT).build());
     private static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(MODID);
     private static final DeferredBlock<ReceiverBlock> RECEIVER = BLOCKS.registerBlock("energy_receiver", ReceiverBlock::new);
     private static final DeferredRegister<BlockEntityType<?>> ENTITIES = DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, MODID);
@@ -40,10 +55,15 @@ public final class PowerBankVerification {
     private static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> SUPPLY_TEST =
         FUNCTIONS.register("creative_power_bank_neighbors", () -> PowerBankVerification::suppliesNeighbors);
 
+    private static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> CHARGING_TEST =
+        FUNCTIONS.register("creative_power_bank_charging", () -> PowerBankVerification::chargesItem);
+
     private PowerBankVerification() {
     }
 
     static void register(IEventBus bus) {
+        ITEMS.register(bus);
+        COMPONENTS.register(bus);
         BLOCKS.register(bus);
         ENTITIES.register(bus);
         FUNCTIONS.register(bus);
@@ -78,6 +98,8 @@ public final class PowerBankVerification {
     }
 
     private static void registerCapabilities(RegisterCapabilitiesEvent event) {
+        event.registerItem(Capabilities.Energy.ITEM, (stack, access) ->
+            new ItemAccessEnergyHandler(access, ENERGY.get(), 100, 17, 0), BATTERY.get());
         event.registerBlockEntity(Capabilities.Energy.BLOCK, RECEIVER_ENTITY.get(),
             (receiver, side) -> side == receiver.acceptedSide ? receiver.energy : null);
     }
@@ -86,6 +108,51 @@ public final class PowerBankVerification {
         var environment = event.registerEnvironment(Identifier.fromNamespaceAndPath(MODID, "power_bank"));
         var data = new TestData<>(environment, Identifier.fromNamespaceAndPath(MODID, "empty"), 100, 0, true);
         event.registerTest(SUPPLY_TEST.getId(), new FunctionGameTestInstance(SUPPLY_TEST.key(), data));
+        event.registerTest(CHARGING_TEST.getId(), new FunctionGameTestInstance(CHARGING_TEST.key(), data));
+    }
+
+    private static void chargesItem(GameTestHelper helper) {
+        BlockPos pos = new BlockPos(2, 2, 2);
+        helper.setBlock(pos, ModBlocks.CREATIVE_POWER_BANK.get());
+        var bank = helper.getBlockEntity(pos, CreativePowerBankBlockEntity.class);
+        var player = helper.makeMockPlayer(GameType.SURVIVAL);
+        var menu = new CreativePowerBankMenu(1, player.getInventory(), bank);
+        helper.assertValueEqual(menu.slots.size(), 37, "One charging slot and 36 inventory slots");
+        helper.assertTrue(!menu.getSlot(0).mayPlace(new ItemStack(Items.STONE)), "Reject items without FE capability");
+        helper.assertValueEqual(menu.getSlot(0).getMaxStackSize(), 1, "Charge one item at a time");
+        player.getInventory().setItem(9, new ItemStack(BATTERY.get(), 2));
+        menu.quickMoveStack(player, 1);
+        helper.assertValueEqual(bank.getItem(0).getCount(), 1, "Shift insertion moves exactly one battery");
+        helper.assertValueEqual(player.getInventory().getItem(9).getCount(), 1, "Remaining battery stays in inventory");
+        // Begin at a known tick boundary to measure exactly one transfer.
+        helper.runAfterDelay(3, () -> {
+            bank.setItem(0, new ItemStack(BATTERY.get()));
+            helper.runAfterDelay(1, () -> {
+                helper.assertValueEqual(bank.getItem(0).getOrDefault(ENERGY.get(), 0), 17, "Receiver's 17 FE limit is respected per tick");
+                var nearlyFull = new ItemStack(BATTERY.get());
+                nearlyFull.set(ENERGY.get(), 99);
+                bank.setItem(0, nearlyFull);
+                helper.runAfterDelay(1, () -> {
+                    helper.assertValueEqual(bank.getItem(0).getOrDefault(ENERGY.get(), 0), 100, "Charging clamps to item capacity");
+                    helper.runAfterDelay(1, () -> {
+                        helper.assertValueEqual(bank.getItem(0).getOrDefault(ENERGY.get(), 0), 100, "Full battery remains full");
+                        var restored = (CreativePowerBankBlockEntity) BlockEntity.loadStatic(
+                            bank.getBlockPos(), bank.getBlockState(), bank.saveWithFullMetadata(helper.getLevel().registryAccess()),
+                            helper.getLevel().registryAccess());
+                        helper.assertTrue(restored != null && restored.getItem(0).is(BATTERY.get()), "Charging item survives save/load");
+                        helper.assertValueEqual(restored.getItem(0).getOrDefault(ENERGY.get(), 0), 100, "Saved energy survives save/load");
+                        helper.assertTrue(!menu.quickMoveStack(player, 0).isEmpty() && bank.isEmpty(), "Shift extraction returns the battery");
+                        menu.removed(player);
+                        helper.assertTrue(bank.isEmpty(), "Closing does not duplicate the item");
+                        bank.setItem(0, restored.getItem(0).copy());
+                        helper.setBlock(pos, Blocks.AIR);
+                        helper.assertItemEntityCountIs(BATTERY.get(), pos, 2, 1);
+                        helper.assertTrue(!menu.stillValid(player), "Removed bank invalidates the menu");
+                        helper.succeed();
+                    });
+                });
+            });
+        });
     }
 
     private static void suppliesNeighbors(GameTestHelper helper) {

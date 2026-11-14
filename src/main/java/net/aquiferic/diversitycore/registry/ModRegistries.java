@@ -24,6 +24,7 @@ public final class ModRegistries {
         RECIPES.freeze();
         CONTENT.register(bus);
         ModBlockEntities.register(bus);
+        ModMenus.MENUS.register(bus);
         ModCreativeTabs.TABS.register(bus);
         bus.addListener(ModRegistries::addVanillaCreativeContents);
     }

@@ -5,16 +5,24 @@ import java.util.List;
 import net.aquiferic.diversitycore.DiversityCore;
 import net.aquiferic.diversitycore.registry.ModTags;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.protocol.game.ClientboundLevelEventPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.TriState;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.GameMasterBlock;
 import net.minecraft.world.level.block.LevelEvent;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.piston.PistonBaseBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.gamerules.GameRules;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -25,7 +33,7 @@ import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.level.BlockDropsEvent;
 import net.neoforged.neoforge.event.level.block.BreakBlockEvent;
 
-/** Tag-driven dismantling, shared by all wrench items and tagged blocks. */
+/** Tag-driven rotation and dismantling, shared by all wrench items and tagged blocks. */
 @EventBusSubscriber(modid = DiversityCore.MODID)
 public final class WrenchEvents {
     private static final ThreadLocal<DropCapture> REMOVAL_DROPS = new ThreadLocal<>();
@@ -35,13 +43,33 @@ public final class WrenchEvents {
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+        if (event.isCanceled() || event.getUseBlock() == TriState.FALSE || event.getUseItem() == TriState.FALSE) {
+            return;
+        }
         var player = event.getEntity();
         var level = event.getLevel();
         var pos = event.getPos();
         var state = level.getBlockState(pos);
         var tool = event.getItemStack();
-        if (player.isSpectator() || !player.isShiftKeyDown()
-                || !tool.is(ModTags.WRENCHES) || !state.is(ModTags.WRENCH_BREAKABLE)) {
+        if (player.isSpectator()) {
+            return;
+        }
+        if (!tool.is(ModTags.WRENCHES)) {
+            // Empty main-hand use otherwise opens containers before the offhand is tried.
+            // PASS keeps vanilla's hand dispatch and the offhand's protection events intact.
+            if (!player.isShiftKeyDown() && event.getHand() == InteractionHand.MAIN_HAND && tool.isEmpty()
+                    && player.getOffhandItem().is(ModTags.WRENCHES) && state.is(ModTags.WRENCH_ROTATABLE)
+                    && rotationState(state, level, pos) != state) {
+                event.setCanceled(true);
+                event.setCancellationResult(InteractionResult.PASS);
+            }
+            return;
+        }
+        if (!player.isShiftKeyDown()) {
+            rotate(event, state);
+            return;
+        }
+        if (!state.is(ModTags.WRENCH_BREAKABLE)) {
             return;
         }
 
@@ -125,6 +153,61 @@ public final class WrenchEvents {
         }
         player.getInventory().setChanged();
         player.inventoryMenu.broadcastChanges();
+    }
+
+    private static void rotate(PlayerInteractEvent.RightClickBlock event, BlockState state) {
+        if (!state.is(ModTags.WRENCH_ROTATABLE)) {
+            return;
+        }
+        var level = event.getLevel();
+        var pos = event.getPos();
+        var rotated = rotationState(state, level, pos);
+        if (rotated == state) {
+            return;
+        }
+        event.setCanceled(true);
+        event.setCancellationResult(InteractionResult.SUCCESS);
+        if (!(level instanceof ServerLevel) || !(event.getEntity() instanceof ServerPlayer player)) {
+            return;
+        }
+        if (!level.mayInteract(player, pos) || player.blockActionRestricted(level, pos, player.gameMode())
+                || state.getBlock() instanceof GameMasterBlock && !player.canUseGameMasterBlocks()
+                || !rotated.is(state.getBlock()) || !rotated.canSurvive(level, pos)
+                || !level.setBlock(pos, rotated, Block.UPDATE_ALL)) {
+            event.setCancellationResult(InteractionResult.FAIL);
+        }
+    }
+
+    private static BlockState rotationState(BlockState state, Level level, BlockPos pos) {
+        // Extended pistons must keep their orientation aligned with the head and moving blocks.
+        if (state.getBlock() instanceof PistonBaseBlock && state.getValue(BlockStateProperties.EXTENDED)) {
+            return state;
+        }
+        if (state.hasProperty(BlockStateProperties.HORIZONTAL_FACING)) {
+            var rotated = state.rotate(level, pos, Rotation.CLOCKWISE_90);
+            return rotated != state ? rotated : state.setValue(BlockStateProperties.HORIZONTAL_FACING,
+                state.getValue(BlockStateProperties.HORIZONTAL_FACING).getClockWise());
+        }
+        if (state.hasProperty(BlockStateProperties.FACING)) {
+            Direction next = switch (state.getValue(BlockStateProperties.FACING)) {
+                case NORTH -> Direction.EAST;
+                case EAST -> Direction.SOUTH;
+                case SOUTH -> Direction.WEST;
+                case WEST -> Direction.UP;
+                case UP -> Direction.DOWN;
+                case DOWN -> Direction.NORTH;
+            };
+            return state.setValue(BlockStateProperties.FACING, next);
+        }
+        if (state.hasProperty(BlockStateProperties.AXIS)) {
+            Direction.Axis next = switch (state.getValue(BlockStateProperties.AXIS)) {
+                case X -> Direction.Axis.Y;
+                case Y -> Direction.Axis.Z;
+                case Z -> Direction.Axis.X;
+            };
+            return state.setValue(BlockStateProperties.AXIS, next);
+        }
+        return state;
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)

@@ -62,6 +62,14 @@ public final class ContentRegistryVerification {
 
     private void verifyRegisteredContent(GatherDataEvent.Server event) {
         PowerBankVerification.verifyStorage();
+        EnergyBarVerification.verify();
+        if (net.neoforged.fml.ModList.get().isLoaded("jade")) {
+            try {
+                EnergyBarModeVerification.verify();
+            } catch (ReflectiveOperationException exception) {
+                throw new IllegalStateException("Jade energy bar verification failed", exception);
+            }
+        }
         var item = registered.itemDefinitions().getFirst().holder().get();
         require(item instanceof CustomItem, "Custom item factory");
         require(factoryCalls.get() == 1, "Factory must execute exactly once");

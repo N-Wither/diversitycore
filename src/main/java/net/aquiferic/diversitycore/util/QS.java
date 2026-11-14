@@ -54,4 +54,7 @@ public final class QS {
     public static Identifier idt(String path) {
         return Identifier.parse(path);
     }
+    public static Identifier idt(String namespace, String path) {
+        return  Identifier.fromNamespaceAndPath(namespace, path);
+    }
 }

@@ -20,15 +20,17 @@ public final class ModDataGenerators {
         event.addProvider(new ModModelProvider(output, content));
         event.addProvider(new ModRecipeProvider(output, ModRegistries.RECIPES,
             event.getWorldLookupProvider(), event.getReloadableLookupProvider()));
-        // Generate declared locales in addition to the default English and Simplified Chinese translations.
+        // Discover handwritten locales as well as names declared through the content API.
+        var translations = TranslationSources.read(java.nio.file.Path.of(
+                System.getProperty("diversitycore.translationSources", "src/main/translations")));
         var locales = new java.util.TreeSet<String>();
-        locales.add("en_us");
-        locales.add("zh_cn");
+        locales.addAll(translations.keySet());
         content.itemDefinitions().forEach(definition -> locales.addAll(definition.names().keySet()));
         content.blockDefinitions().forEach(definition -> locales.addAll(definition.names().keySet()));
         content.cropDefinitions().forEach(definition -> locales.addAll(definition.names().keySet()));
         content.validateCropSeeds();
-        locales.forEach(locale -> event.addProvider(new ModLanguageProvider(output, content, locale)));
+        locales.forEach(locale -> event.addProvider(new ModLanguageProvider(output, content, locale,
+                translations.getOrDefault(locale, java.util.Map.of()))));
         event.addProvider(new ModLootProvider(output, content, event.getReloadableLookupProvider()));
         event.addProvider(new ModItemTagsProvider(output, content, event.getWorldLookupProvider()));
         event.addProvider(new ModBlockTagsProvider(output, content, event.getWorldLookupProvider()));
