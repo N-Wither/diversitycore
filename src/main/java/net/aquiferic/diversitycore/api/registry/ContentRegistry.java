@@ -157,7 +157,7 @@ public final class ContentRegistry {
         var seed = builder.selfSeeded ? produce : builder.existingSeed != null ? builder.existingSeed : addItem(builder.seedBuilder);
         builder.entry = new CropEntry(root, upper, seed, produce);
         cropDefinitions.add(new CropDefinition(builder.entry, settings, textures, upperTextures,
-            builder.names, builder.tags, builder.produceCount, builder.bonusSeedTrials, builder.model, Optional.ofNullable(builder.loot)));
+            builder.names, builder.tags, builder.produceCount, builder.bonusSeedTrials, builder.model, Optional.ofNullable(builder.loot), builder.textureRatio));
         return builder.entry;
     }
 
@@ -174,7 +174,7 @@ public final class ContentRegistry {
         var seed = builder.selfSeeded ? produce : builder.existingSeed != null ? builder.existingSeed : addItem(builder.seedBuilder);
         builder.entry = new SimpleCropEntry(block, seed, produce);
         simpleCropDefinitions.add(new SimpleCropDefinition(builder.entry, builder.textures(),
-                builder.model, builder.names, builder.tags, Optional.ofNullable(builder.loot)));
+                builder.model, builder.names, builder.tags, Optional.ofNullable(builder.loot), builder.textureRatio));
         return builder.entry;
     }
 

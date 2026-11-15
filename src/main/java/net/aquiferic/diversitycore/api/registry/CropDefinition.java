@@ -12,7 +12,15 @@ public record CropDefinition(CropEntry entry, CropSettings settings,
         List<Identifier> textures, List<Identifier> upperTextures,
         Map<String, String> names, Set<TagKey<Block>> tags,
         int produceCount, int bonusSeedTrials, CropModelType model,
-        java.util.Optional<net.aquiferic.diversitycore.api.loot.CropLootFactory> loot) {
+        java.util.Optional<net.aquiferic.diversitycore.api.loot.CropLootFactory> loot, CropTextureRatio textureRatio) {
+    public CropDefinition(CropEntry entry, CropSettings settings,
+            List<Identifier> textures, List<Identifier> upperTextures,
+            Map<String, String> names, Set<TagKey<Block>> tags,
+            int produceCount, int bonusSeedTrials, CropModelType model,
+            java.util.Optional<net.aquiferic.diversitycore.api.loot.CropLootFactory> loot) {
+        this(entry, settings, textures, upperTextures, names, tags, produceCount, bonusSeedTrials,
+                model, loot, CropTextureRatio.SQUARE);
+    }
     public CropDefinition(CropEntry entry, CropSettings settings,
             List<Identifier> textures, List<Identifier> upperTextures,
             Map<String, String> names, Set<TagKey<Block>> tags,
@@ -28,6 +36,7 @@ public record CropDefinition(CropEntry entry, CropSettings settings,
     }
 
     public CropDefinition {
+        java.util.Objects.requireNonNull(textureRatio);
         java.util.Objects.requireNonNull(loot);
         java.util.Objects.requireNonNull(model);
         textures = List.copyOf(textures);

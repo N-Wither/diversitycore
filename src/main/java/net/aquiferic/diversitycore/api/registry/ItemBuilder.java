@@ -66,15 +66,27 @@ public final class ItemBuilder<T extends Item> extends ContentBuilder<ItemBuilde
         return this;
     }
 
-    public ItemBuilder<T> tag(String id) {
+    /** Adds each tag and, for nested paths, its immediate parent tag. */
+    public ItemBuilder<T> tag(String... ids) {
         ensureMutable();
-        tags.add(QS.itt(id));
+        for (String id : ids) {
+            TagKey<Item> tag = QS.itt(id);
+            int slash = id.lastIndexOf('/');
+            if (slash >= 0) {
+                tags.add(QS.itt(id.substring(0, slash)));
+            }
+            tags.add(tag);
+        }
         return this;
     }
 
-    public ItemBuilder<T> tag(TagKey<Item> tag) {
+    /** Adds the supplied tags without expanding parent paths. */
+    @SafeVarargs
+    public final ItemBuilder<T> tag(TagKey<Item>... tags) {
         ensureMutable();
-        tags.add(QS.itt(tag));
+        for (TagKey<Item> tag : tags) {
+            this.tags.add(QS.itt(tag));
+        }
         return this;
     }
 

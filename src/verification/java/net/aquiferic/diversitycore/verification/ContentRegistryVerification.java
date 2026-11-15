@@ -30,6 +30,7 @@ public final class ContentRegistryVerification {
         buildersAreSingleUse();
         invalidDeclarationsFailEarly();
         tagTargetsAreIndependent();
+        itemTagVarargsExpandImmediateParents();
         invalidTagsFailEarly();
         noItemRejectsItemTags();
         quickTagConversionsAreTyped();
@@ -37,8 +38,7 @@ public final class ContentRegistryVerification {
             factoryCalls.incrementAndGet();
             return new CustomItem(properties);
         }).maxStackSize(16)
-            .tag("diversitycore_verification:item_only")
-            .tag("c:verification/shared")
+            .tag("diversitycore_verification:item_only", "c:verification/shared")
             .tag(TagKey.create(Registries.ITEM, Identifier.parse("c:verification/shared")))
             .register();
         registered.blocks().create("cube", CustomBlock::new)
@@ -80,7 +80,7 @@ public final class ContentRegistryVerification {
         event.addProvider(new ModLootProvider(event.getGenerator().getPackOutput(), registered, event.getReloadableLookupProvider()));
         event.addProvider(new ModItemTagsProvider(event.getGenerator().getPackOutput(), registered, event.getWorldLookupProvider()));
         event.addProvider(new ModBlockTagsProvider(event.getGenerator().getPackOutput(), registered, event.getWorldLookupProvider()));
-        System.out.println("Content API verification passed (9 scenarios, dedicated server)");
+        System.out.println("Content API verification passed (10 scenarios, dedicated server)");
     }
 
     private static void declarationsStayDeferred() {
@@ -163,6 +163,22 @@ public final class ContentRegistryVerification {
         expect(UnsupportedOperationException.class, () -> item.tags().clear());
         expect(UnsupportedOperationException.class, () -> block.tags().clear());
         expect(UnsupportedOperationException.class, () -> block.itemTags().clear());
+    }
+
+    private static void itemTagVarargsExpandImmediateParents() {
+        var content = new ContentRegistry("tag_varargs");
+        var ingots = QS.itt("c:ingots");
+        var aluminum = QS.itt("c:ingots/aluminum");
+        var nested = QS.itt("c:materials/metals/aluminum");
+        content.items().create("strings")
+            .tag("c:ingots/aluminum", "c:materials/metals/aluminum", "c:plain", "c:ingots/aluminum")
+            .register();
+        require(content.itemDefinitions().getFirst().tags().equals(java.util.Set.of(
+            ingots, aluminum, QS.itt("c:materials/metals"), nested, QS.itt("c:plain"))),
+            "String varargs must add only immediate parents and deduplicate tags");
+        content.items().create("keys").tag(aluminum, nested, aluminum).register();
+        require(content.itemDefinitions().get(1).tags().equals(java.util.Set.of(aluminum, nested)),
+            "TagKey varargs must deduplicate without adding parents");
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})

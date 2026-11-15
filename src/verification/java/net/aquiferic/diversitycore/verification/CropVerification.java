@@ -97,6 +97,12 @@ public final class CropVerification {
                 .properties(properties -> properties.food(new net.minecraft.world.food.FoodProperties.Builder()
                     .nutrition(1).saturationModifier(0.5F).build())))
             .loot(CropLootTables.crop().seeds(1).produce(2).bonusSeeds(0).build()).register();
+        fixture("crop_ratio_tall_crop", 8).textureRatio(1, 2).register();
+        fixture("crop_ratio_tall_cross", 8).textureRatio(1, 2).model(CropModelType.CROSS).register();
+        fixture("crop_ratio_wide", 8).textureRatio(2, 1).register();
+        registry.crops().createSimple("simple_ratio_tall").textureRatio(1, 2)
+            .stageTextures(textures(8)).seed(s -> s.texture("minecraft:item/wheat_seeds"))
+            .produce(() -> Items.WHEAT).register();
         single = fixture("crop_single", 8).register();
         fixture("crop_cross", 8).model(CropModelType.CROSS).register();
         fixture("crop_cross_tall", 4).model(CropModelType.CROSS)
@@ -184,6 +190,18 @@ public final class CropVerification {
         cross.register();
         require(models.cropDefinitions().getLast().model() == CropModelType.CROSS, "Cross model is retained");
         expect(IllegalStateException.class, () -> cross.model(CropModelType.CROP));
+        require(models.cropDefinitions().getFirst().textureRatio().equals(CropTextureRatio.SQUARE), "Default ratio stays square");
+        var ratio = models.crops().create("ratio").textureRatio(16, 32);
+        expect(IllegalArgumentException.class, () -> ratio.textureRatio(0, 1));
+        expect(IllegalArgumentException.class, () -> ratio.textureRatio(1, -1));
+        ratio.register();
+        require(models.cropDefinitions().getLast().textureRatio().modelHeight() == 32, "Ratio controls visual height");
+        expect(IllegalStateException.class, () -> ratio.textureRatio(1, 1));
+        var simpleRatio = models.crops().createSimple("simple_ratio").textureRatio(2, 1);
+        expect(IllegalArgumentException.class, () -> simpleRatio.textureRatio(-1, 1));
+        simpleRatio.register();
+        require(models.simpleCropDefinitions().getLast().textureRatio().modelHeight() == 8, "Simple ratio is retained");
+        expect(IllegalStateException.class, () -> simpleRatio.textureRatio(1, 1));
         var registry = new ContentRegistry("crop_contracts");
         expect(IllegalArgumentException.class, () -> CropLootTables.crop().produce(-1));
         expect(IllegalArgumentException.class, () -> CropLootTables.crop().seeds(3, 2));

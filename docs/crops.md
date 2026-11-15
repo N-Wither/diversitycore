@@ -34,7 +34,7 @@ public static final SimpleCropEntry GARLIC = CONTENT.crops().createSimple("garli
 
 此时只生成 `garlic` 物品，`seed()` 与 `produce()` 指向同一可种植物品，不生成 `garlic_seeds`。
 食物等属性在 `produce(...)` 回调里配置；不能再设置独立种子或引用已有产物。
-原来单独注册的同名普通物品应移除，避免 ID 冲突。`seeds(1)` 保底掉落和成熟的 `produce(...)` 数量会相加。
+不能再单独注册同名普通物品，会导致 ID 冲突。`seeds(1)` 保底掉落和成熟的 `produce(...)` 数量会相加。
 
 `SimpleCropEntry` 提供 `block()`、`seed()`、`produce()` 延迟引用，没有上部方块。
 元数据从 `CONTENT.simpleCropDefinitions()` 读取，现有模型、掉落、标签和语言 provider 已支持。
@@ -128,6 +128,23 @@ CONTENT.crops().create("cabbage")
     .model(CropModelType.CROSS)
     .register();
 ```
+
+### 自定义贴图比例
+
+`create()` 和 `createSimple()` 都支持 `.textureRatio(width, height)`，默认 `(1, 1)`。
+参数为正整数比例，例如 `(1, 2)` 与 `(16, 32)` 等价。
+模型保持原有水平尺寸和底部位置，高度为 `16 * height / width` 模型单位。
+因此单格作物使用 16×32 的阶段贴图时，视觉高度为两格；生长、选中框和碰撞不变。
+适用于 CROP、CROSS 和两格作物的上下部分，物品模型不受影响。
+
+```java
+CONTENT.crops().createSimple("tomato")
+    .textureRatio(1, 2)
+    .model(CropModelType.CROSS)
+    .register();
+```
+
+每阶段图片本身应采用声明的比例。修改比例后需要重新运行 `runData` 生成模型。
 
 默认贴图路径（N 从 0 开始）：
 

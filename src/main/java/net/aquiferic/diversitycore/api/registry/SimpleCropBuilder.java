@@ -21,6 +21,7 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 public final class SimpleCropBuilder extends ContentBuilder<SimpleCropBuilder> {
     boolean selfSeeded;
     CropModelType model = CropModelType.CROP;
+    CropTextureRatio textureRatio = CropTextureRatio.SQUARE;
     net.aquiferic.diversitycore.api.loot.CropLootFactory loot;
     final Set<TagKey<Block>> tags = new LinkedHashSet<>();
     final ItemBuilder<Item> seedBuilder;
@@ -47,6 +48,13 @@ public final class SimpleCropBuilder extends ContentBuilder<SimpleCropBuilder> {
     public SimpleCropBuilder loot(net.aquiferic.diversitycore.api.loot.CropLootFactory factory) {
         ensureMutable();
         loot = Objects.requireNonNull(factory);
+        return this;
+    }
+
+    /** Sets sprite width:height and visual height without changing growth or collision. */
+    public SimpleCropBuilder textureRatio(int width, int height) {
+        ensureMutable();
+        textureRatio = new CropTextureRatio(width, height);
         return this;
     }
 

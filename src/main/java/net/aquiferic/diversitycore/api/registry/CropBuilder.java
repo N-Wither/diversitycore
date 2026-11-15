@@ -25,6 +25,7 @@ import net.minecraft.world.level.material.PushReaction;
 public final class CropBuilder extends ContentBuilder<CropBuilder> {
     int stages = 8;
     CropModelType model = CropModelType.CROP;
+    CropTextureRatio textureRatio = CropTextureRatio.SQUARE;
     net.aquiferic.diversitycore.api.loot.CropLootFactory loot;
     int upperStages = 1;
     HarvestMode harvestMode;
@@ -68,6 +69,13 @@ public final class CropBuilder extends ContentBuilder<CropBuilder> {
     public CropBuilder stages(int count) {
         ensureMutable();
         stages = checkStages(count, 2);
+        return this;
+    }
+
+    /** Sets sprite width:height and visual height without changing growth or collision. */
+    public CropBuilder textureRatio(int width, int height) {
+        ensureMutable();
+        textureRatio = new CropTextureRatio(width, height);
         return this;
     }
 

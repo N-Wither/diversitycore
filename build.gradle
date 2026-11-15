@@ -252,6 +252,7 @@ tasks.register('verifyContentApi') {
         verifyTag('c', 'item', 'verification/shared',
                 ['diversitycore_verification:custom_item', 'diversitycore_verification:cube'])
         verifyTag('c', 'block', 'verification/shared', ['diversitycore_verification:cube'])
+        verifyTag('c', 'item', 'verification', ['diversitycore_verification:custom_item'])
         assert !new File(dataDirectory, 'diversitycore_verification/tags/block/item_only.json').exists()
         assert !new File(dataDirectory, 'diversitycore_verification/tags/item/block_only.json').exists()
     }
@@ -303,6 +304,19 @@ tasks.register('verifyCropResources') {
         assert json(assets + 'blockstates/crop_maximum.json').variants.size() == 16
         assert json(assets + 'blockstates/crop_rice_top.json').variants.size() == 4
         assert json(assets + 'blockstates/crop_tall_top.json').variants.size() == 1
+        ['crop_ratio_tall_crop': [32, 4], 'crop_ratio_tall_cross': [32, 2],
+         'crop_ratio_wide': [8, 4], 'simple_ratio_tall': [32, 4]].each { name, expected ->
+            def model = json(assets + 'models/block/' + name + '_stage0.json')
+            assert model.elements.size() == expected[1]
+            model.elements.each { element ->
+                def bottom = model.parent == 'minecraft:block/crop' ? -1 : 0
+                assert element.from[1] == bottom
+                assert element.to[1] == expected[0] + bottom
+                element.faces.values().each { face ->
+                    assert face.uv == [0, 0, 16, 16] || face.uv == [16, 0, 0, 16]
+                }
+            }
+        }
         assert json(assets + 'models/block/crop_single_stage0.json').parent == 'minecraft:block/crop'
         assert json(assets + 'blockstates/vanilla_simple.json').variants.size() == 8
         assert json(assets + 'models/block/vanilla_simple_stage0.json').parent == 'minecraft:block/crop'
@@ -318,12 +332,17 @@ tasks.register('verifyCropResources') {
         assert !new File(fixtureRoot, assets + 'models/item/simple_self_seeded_seeds.json').exists()
         def selfLoot = json('data/diversitycore_verification/loot_table/blocks/simple_self_seeded.json')
         assert selfLoot.pools.every { pool -> pool.entries.every { it.name == 'diversitycore_verification:simple_self_seeded' } }
-        ['crop_cross', 'crop_cross_tall', 'crop_cross_tall_top'].each { name ->
+        ['crop_cross', 'crop_cross_tall', 'crop_cross_tall_top', 'vanilla_cross', 'crop_ratio_tall_cross'].each { name ->
             json(assets + 'blockstates/' + name + '.json').variants.values().each { variant ->
                 def model = json(assets + 'models/' + variant.model.split(':')[1] + '.json')
                 assert model.parent == 'minecraft:block/cross'
                 assert model.textures.cross
                 assert !model.textures.crop
+                assert model.elements.size() == 2
+                model.elements.each { element ->
+                    assert element.faces.north.uv == [0, 0, 16, 16]
+                    assert element.faces.south.uv == [16, 0, 0, 16]
+                }
             }
         }
         assert json(assets + 'models/item/crop_single_seeds.json').parent == 'minecraft:item/generated'
