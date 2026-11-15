@@ -100,7 +100,9 @@ var rice = CONTENT.crops().create("example_rice")
 - `produceCount(int)`：成熟产物数量，默认 1。
 - `bonusSeedTrials(int)`：奖励种子的二项分布次数，默认 3，概率为 0.5714286，包含时运加成；设为 0 禁用奖励种子。
 
-掉落通过原生 loot table 处理，并应用爆炸衰减。创造破坏整株不会触发另一半的额外掉落。此次 API 不包含右键收获。
+掉落通过原生 loot table 处理，并应用爆炸衰减。创造破坏整株不会触发另一半的额外掉落。
+
+本模组不包含右键收获功能。
 
 ## 验证
 

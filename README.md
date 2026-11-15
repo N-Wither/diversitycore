@@ -10,8 +10,14 @@ A mod to accelerate my mod developing.
 - A wrench: right-click to rotate blocks tagged `diversitycore:wrench_rotatable`; Shift + right-click to dismantle blocks tagged `diversitycore:wrench_breakable` (see [wrench usage](docs/wrench.md))
 - A power bank with infinity FE!
 
+## Contribution
+
+Feel free to create issues and pull requests. If you want to translate this mod into your own language, see how to do [here](docs/localization.md).
+
 ## Credits
 
 Code by [Codex](https://chatgpt.com).
+
 Wrench texture by [Glionox](https://glionox.itch.io/items16).
+
 Power bank texture by me.

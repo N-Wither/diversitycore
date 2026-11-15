@@ -13,8 +13,7 @@ public final class ModLanguageProvider extends LanguageProvider {
         this(output, content, locale, java.util.Map.of());
     }
 
-    public ModLanguageProvider(PackOutput output, ContentRegistry content, String locale,
-            java.util.Map<String, String> translations) {
+    public ModLanguageProvider(PackOutput output, ContentRegistry content, String locale, java.util.Map<String, String> translations) {
         super(output, content.namespace(), locale);
         this.content = content;
         this.locale = locale;
