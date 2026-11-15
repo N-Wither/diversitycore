@@ -1,6 +1,7 @@
 package net.aquiferic.diversitycore.compat.jade;
 
 import net.minecraft.world.level.block.Block;
+import net.aquiferic.diversitycore.content.block.CropPlantBlock;
 import snownee.jade.api.IWailaClientRegistration;
 import snownee.jade.api.IWailaCommonRegistration;
 import snownee.jade.api.IWailaPlugin;
@@ -19,5 +20,6 @@ public final class DiversityCoreJadePlugin implements IWailaPlugin {
     public void registerClient(IWailaClientRegistration registration) {
         registration.addConfig(EnergyBarServerProvider.UID, ConfigIcon.none(), EnergyBarMode.TRUE);
         registration.registerBlockComponent(EnergyBarComponentProvider.INSTANCE, Block.class);
+        registration.registerBlockComponent(CropProgressComponentProvider.INSTANCE, CropPlantBlock.class);
     }
 }

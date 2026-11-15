@@ -28,6 +28,7 @@ public final class ModDataGenerators {
         content.itemDefinitions().forEach(definition -> locales.addAll(definition.names().keySet()));
         content.blockDefinitions().forEach(definition -> locales.addAll(definition.names().keySet()));
         content.cropDefinitions().forEach(definition -> locales.addAll(definition.names().keySet()));
+        content.simpleCropDefinitions().forEach(definition -> locales.addAll(definition.names().keySet()));
         content.validateCropSeeds();
         locales.forEach(locale -> event.addProvider(new ModLanguageProvider(output, content, locale,
                 translations.getOrDefault(locale, java.util.Map.of()))));

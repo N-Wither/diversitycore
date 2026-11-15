@@ -9,6 +9,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import net.aquiferic.diversitycore.content.block.CropPlantBlock;
+import net.aquiferic.diversitycore.content.block.SimpleCropPlantBlock;
 import net.aquiferic.diversitycore.content.block.WaterCropPlantBlock;
 import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
@@ -34,6 +35,7 @@ public final class ContentRegistry {
     private final Blocks blocks = new Blocks();
     private final Crops crops = new Crops();
     private final List<CropDefinition> cropDefinitions = new ArrayList<>();
+    private final List<SimpleCropDefinition> simpleCropDefinitions = new ArrayList<>();
     private final Set<String> itemNames = new HashSet<>();
     private final Set<String> blockNames = new HashSet<>();
     private final List<ItemDefinition> itemDefinitions = new ArrayList<>();
@@ -57,6 +59,7 @@ public final class ContentRegistry {
     public Crops crops() { return crops; }
 
     public List<CropDefinition> cropDefinitions() { return List.copyOf(cropDefinitions); }
+    public List<SimpleCropDefinition> simpleCropDefinitions() { return List.copyOf(simpleCropDefinitions); }
 
     public String namespace() {
         return namespace;
@@ -154,12 +157,36 @@ public final class ContentRegistry {
         var seed = builder.selfSeeded ? produce : builder.existingSeed != null ? builder.existingSeed : addItem(builder.seedBuilder);
         builder.entry = new CropEntry(root, upper, seed, produce);
         cropDefinitions.add(new CropDefinition(builder.entry, settings, textures, upperTextures,
-            builder.names, builder.tags, builder.produceCount, builder.bonusSeedTrials));
+            builder.names, builder.tags, builder.produceCount, builder.bonusSeedTrials, builder.model));
+        return builder.entry;
+    }
+
+    SimpleCropEntry addSimpleCrop(SimpleCropBuilder builder) {
+        ensureOpen();
+        String path = builder.id.getPath();
+        checkAvailable(blockNames, path, "crop block");
+        if (builder.existingProduce == null) checkAvailable(itemNames, path, "crop produce");
+        if (builder.existingSeed == null) checkAvailable(itemNames, path + "_seeds", "crop seed");
+        var block = blockRegister.registerBlock(path,
+                p -> new SimpleCropPlantBlock(p, () -> builder.entry.seed().get()), builder::createProperties);
+        blockNames.add(path);
+        var produce = builder.existingProduce != null ? builder.existingProduce : addItem(builder.produceBuilder);
+        var seed = builder.existingSeed != null ? builder.existingSeed : addItem(builder.seedBuilder);
+        builder.entry = new SimpleCropEntry(block, seed, produce);
+        simpleCropDefinitions.add(new SimpleCropDefinition(builder.entry, builder.textures(),
+                builder.model, builder.names, builder.tags));
         return builder.entry;
     }
 
     /** Called after both registries are populated; also useful to validate declarations during datagen. */
     public void validateCropSeeds() {
+        for (var definition : simpleCropDefinitions) {
+            var entry = definition.entry();
+            if (!(entry.seed().get() instanceof BlockItem item) || item.getBlock() != entry.block().get()) {
+                throw new IllegalStateException("Crop seed must be a BlockItem that plants " + entry.block().getId());
+            }
+            Objects.requireNonNull(entry.produce().get(), "Crop produce");
+        }
         for (var definition : cropDefinitions) {
             var entry = definition.entry();
             if (!(entry.seed().get() instanceof BlockItem item) || item.getBlock() != entry.block().get()) {
@@ -175,6 +202,11 @@ public final class ContentRegistry {
         public CropBuilder create(String path) {
             ensureOpen();
             return new CropBuilder(ContentRegistry.this, id(path));
+        }
+
+        public SimpleCropBuilder createSimple(String path) {
+            ensureOpen();
+            return new SimpleCropBuilder(ContentRegistry.this, id(path));
         }
     }
 

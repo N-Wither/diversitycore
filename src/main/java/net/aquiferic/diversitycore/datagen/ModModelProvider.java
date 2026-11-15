@@ -3,6 +3,7 @@ package net.aquiferic.diversitycore.datagen;
 import java.util.HashMap;
 import java.util.List;
 import net.aquiferic.diversitycore.api.registry.ContentRegistry;
+import net.aquiferic.diversitycore.api.registry.CropModelType;
 import net.aquiferic.diversitycore.api.registry.ItemModelType;
 import net.aquiferic.diversitycore.content.block.CropPlantBlock;
 import net.minecraft.client.data.models.BlockModelGenerators;
@@ -41,12 +42,22 @@ public final class ModModelProvider extends ModelProvider {
             }
         }
         for (var definition : content.cropDefinitions()) {
-            cropModels(blocks, definition.entry().block().get(), definition.textures());
-            definition.entry().upperBlock().ifPresent(top -> cropModels(blocks, top.get(), definition.upperTextures()));
+            cropModels(blocks, definition.entry().block().get(), definition.textures(), definition.model());
+            definition.entry().upperBlock().ifPresent(top -> cropModels(blocks, top.get(), definition.upperTextures(), definition.model()));
+        }
+        for (var definition : content.simpleCropDefinitions()) {
+            cropModels(blocks, definition.entry().block().get(), java.util.Optional.of(net.minecraft.world.level.block.CropBlock.AGE),
+                    definition.textures(), definition.model());
         }
     }
 
-    private static void cropModels(BlockModelGenerators blocks, CropPlantBlock block, List<Identifier> textures) {
+    private static void cropModels(BlockModelGenerators blocks, CropPlantBlock block, List<Identifier> textures, CropModelType type) {
+        cropModels(blocks, block, block.ageProperty(), textures, type);
+    }
+
+    private static void cropModels(BlockModelGenerators blocks, net.minecraft.world.level.block.Block block,
+            java.util.Optional<net.minecraft.world.level.block.state.properties.IntegerProperty> ageProperty,
+            List<Identifier> textures, CropModelType type) {
         var models = new HashMap<Identifier, Identifier>();
         var stages = new java.util.ArrayList<Identifier>();
         for (int age = 0; age < textures.size(); age++) {
@@ -54,25 +65,29 @@ public final class ModModelProvider extends ModelProvider {
             Identifier model = models.get(texture);
             if (model == null) {
                 model = ModelLocationUtils.getModelLocation(block, "_stage" + age);
-                ModelTemplates.CROP.create(model, TextureMapping.crop(new Material(texture)), blocks.modelOutput);
+                if (type == CropModelType.CROSS) {
+                    ModelTemplates.CROSS.create(model, TextureMapping.cross(new Material(texture)), blocks.modelOutput);
+                } else {
+                    ModelTemplates.CROP.create(model, TextureMapping.crop(new Material(texture)), blocks.modelOutput);
+                }
                 models.put(texture, model);
             }
             stages.add(model);
         }
-        if (block.ageProperty().isEmpty()) {
+        if (ageProperty.isEmpty()) {
             blocks.blockStateOutput.accept(BlockModelGenerators.createSimpleBlock(block, BlockModelGenerators.plainVariant(stages.getFirst())));
         } else {
             blocks.blockStateOutput.accept(MultiVariantGenerator.dispatch(block)
-                .with(PropertyDispatch.initial(block.ageProperty().get())
+                .with(PropertyDispatch.initial(ageProperty.get())
                     .generate(age -> BlockModelGenerators.plainVariant(stages.get(age)))));
         }
     }
 
     @Override
     protected java.util.stream.Stream<? extends net.minecraft.core.Holder<net.minecraft.world.level.block.Block>> getKnownBlocks() {
-        return java.util.stream.Stream.concat(content.blockDefinitions().stream().map(d -> d.holder()),
+        return java.util.stream.Stream.concat(content.simpleCropDefinitions().stream().map(d -> d.entry().block()), java.util.stream.Stream.concat(content.blockDefinitions().stream().map(d -> d.holder()),
             content.cropDefinitions().stream().flatMap(d -> java.util.stream.Stream.concat(
-                java.util.stream.Stream.of(d.entry().block()), d.entry().upperBlock().stream())));
+                java.util.stream.Stream.of(d.entry().block()), d.entry().upperBlock().stream()))));
     }
 
     @Override

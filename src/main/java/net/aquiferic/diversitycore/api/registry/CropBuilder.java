@@ -24,6 +24,7 @@ import net.minecraft.world.level.material.PushReaction;
 /** Declares a plant, optional upper part, plantable seed and harvested product together. */
 public final class CropBuilder extends ContentBuilder<CropBuilder> {
     int stages = 8;
+    CropModelType model = CropModelType.CROP;
     int upperStages = 1;
     HarvestMode harvestMode;
     boolean aquatic;
@@ -59,6 +60,13 @@ public final class CropBuilder extends ContentBuilder<CropBuilder> {
     public CropBuilder stages(int count) {
         ensureMutable();
         stages = checkStages(count, 2);
+        return this;
+    }
+
+    /** Selects the geometry for all lower and upper growth stages. */
+    public CropBuilder model(CropModelType type) {
+        ensureMutable();
+        model = Objects.requireNonNull(type);
         return this;
     }
 

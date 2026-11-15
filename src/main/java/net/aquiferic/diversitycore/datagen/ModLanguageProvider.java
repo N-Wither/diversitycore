@@ -42,5 +42,9 @@ public final class ModLanguageProvider extends LanguageProvider {
                 definition.entry().upperBlock().ifPresent(top -> add(top.get(), name));
             }
         }
+        for (var definition : content.simpleCropDefinitions()) {
+            String name = definition.names().get(locale);
+            if (name != null) add(definition.entry().block().get(), name);
+        }
     }
 }

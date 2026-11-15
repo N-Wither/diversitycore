@@ -46,5 +46,12 @@ public final class ModBlockTagsProvider extends BlockTagsProvider {
                 definition.entry().upperBlock().ifPresent(top -> tag(key).add(top.key()));
             });
         }
+        for (var definition : content.simpleCropDefinitions()) {
+            var block = definition.entry().block().key();
+            tag(BlockTags.CROPS).add(block);
+            tag(BlockTags.MAINTAINS_FARMLAND).add(block);
+            tag(BlockTags.WASHED_AWAY_BY_FLUIDS).add(block);
+            definition.tags().forEach(key -> tag(key).add(block));
+        }
     }
 }

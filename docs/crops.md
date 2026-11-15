@@ -2,7 +2,30 @@
 
 在模组构造阶段声明作物，最后与其他内容一起调用 `CONTENT.register(bus)`。实际方块和物品由 NeoForge 的注册事件创建。
 
-## 普通作物
+## 原版简单作物
+
+`createSimple(id)` 创建直接继承原版 `CropBlock` 的单格作物，固定 8 个阶段（age 0–7）。
+沿用原版耕地、生长、骨粉、选中框和种子拾取行为，Jade 可直接识别原版年龄属性。
+
+```java
+public static final SimpleCropEntry CABBAGE = CONTENT.crops().createSimple("cabbage")
+    .displayName("en_us", "Cabbage")
+    .model(CropModelType.CROSS)
+    .seed(seed -> seed.displayName("en_us", "Cabbage Seeds"))
+    .produce(ModItems.CABBAGE)
+    .register();
+```
+
+返回的 `SimpleCropBuilder` 仅支持名称、纹理、模型、标签和种子/产物配置，不提供 `stages()`、
+两格、浅水、自种、基底、生存/生长条件或自定义方块属性等特殊功能。`stageTextures()` 必须提供 8 张纹理；
+默认路径与下文相同。默认生成独立种子和产物，也支持引用已有物品；已有种子仍需正确种植该作物。
+掉落固定为保底 1 粒种子，成熟额外 1 个产物及原版小麦概率的奖励种子（含时运）。
+
+`SimpleCropEntry` 提供 `block()`、`seed()`、`produce()` 延迟引用，没有上部方块。
+元数据从 `CONTENT.simpleCropDefinitions()` 读取，现有模型、掉落、标签和语言 provider 已支持。
+下游项目发现声明语言时，也应遍历 `simpleCropDefinitions()` 中的 `names()`。
+
+## 可配置作物
 
 ```java
 public static final CropEntry WHEAT = CONTENT.crops().create("example_wheat")
@@ -79,6 +102,17 @@ var rice = CONTENT.crops().create("example_rice")
 `selfSeeded()` 让自动生成的产物同时作为种子，不生成 `<id>_seeds`。使用 `produce(...)` 回调配置它，不能同时设置独立种子或引用外部产物。种子及产物回调与对应的外部物品引用不能混用。
 
 ## 资源与掉落
+
+植株默认使用小麦式的四平面模型（`CropModelType.CROP`）。调用
+`.model(CropModelType.CROSS)` 可改用草式的双平面交叉模型，不附加草的生物群系染色。
+此设置适用于所有生长阶段，以及两格作物的上下两部分；种子和产物的物品模型不受影响。
+
+```java
+CONTENT.crops().create("cabbage")
+    .stages(8)
+    .model(CropModelType.CROSS)
+    .register();
+```
 
 默认贴图路径（N 从 0 开始）：
 

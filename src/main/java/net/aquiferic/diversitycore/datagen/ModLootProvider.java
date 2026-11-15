@@ -56,6 +56,11 @@ public final class ModLootProvider implements DataProvider {
                 saveCrop(writes, cache, registries, definition, definition.entry().block().get());
                 definition.entry().upperBlock().ifPresent(top -> saveCrop(writes, cache, registries, definition, top.get()));
             }
+            for (var definition : content.simpleCropDefinitions()) {
+                saveCrop(writes, cache, registries, definition.entry().block().get(), false, false,
+                        java.util.Optional.of(net.minecraft.world.level.block.CropBlock.AGE), 7,
+                        definition.entry().seed(), definition.entry().produce(), 1, 3);
+            }
             return CompletableFuture.allOf(writes.toArray(CompletableFuture[]::new));
         });
     }
@@ -63,26 +68,35 @@ public final class ModLootProvider implements DataProvider {
     private void saveCrop(ArrayList<CompletableFuture<?>> writes, CachedOutput cache,
             HolderLookup.Provider registries, CropDefinition definition, CropPlantBlock block) {
         boolean tall = definition.entry().upperBlock().isPresent();
+        saveCrop(writes, cache, registries, block, tall, block.isUpper(), block.ageProperty(), block.getMaxAge(),
+                definition.entry().seed(), definition.entry().produce(), definition.produceCount(), definition.bonusSeedTrials());
+    }
+
+    private void saveCrop(ArrayList<CompletableFuture<?>> writes, CachedOutput cache, HolderLookup.Provider registries,
+            net.minecraft.world.level.block.Block block, boolean tall, boolean upper,
+            java.util.Optional<net.minecraft.world.level.block.state.properties.IntegerProperty> ageProperty, int maxAge,
+            java.util.function.Supplier<? extends net.minecraft.world.item.Item> seed,
+            java.util.function.Supplier<? extends net.minecraft.world.item.Item> produce, int produceCount, int bonusSeedTrials) {
         var table = LootTable.lootTable().setParamSet(LootContextParamSets.BLOCK);
-        if (!block.isUpper()) {
+        if (!upper) {
             table.withPool(LootPool.lootPool().setRolls(ContextIntProviders.exactly(1))
-                .add(LootItem.lootTableItem(definition.entry().seed().get())));
+                .add(LootItem.lootTableItem(seed.get())));
         }
-        if (!tall || block.isUpper()) {
-            LootItemCondition.Builder mature = block.ageProperty().isPresent()
+        if (!tall || upper) {
+            LootItemCondition.Builder mature = ageProperty.isPresent()
                 ? MatchBlock.blockMatches(registries.lookupOrThrow(Registries.BLOCK), block,
-                    StatePropertiesPredicate.Builder.properties().hasProperty(block.ageProperty().get(), block.getMaxAge()))
+                    StatePropertiesPredicate.Builder.properties().hasProperty(ageProperty.get(), maxAge))
                 : MatchBlock.blockMatches(registries.lookupOrThrow(Registries.BLOCK), block);
             table.withPool(LootPool.lootPool().setRolls(ContextIntProviders.exactly(1)).when(mature)
-                .add(LootItem.lootTableItem(definition.entry().produce().get())
-                    .apply(SetItemCountFunction.setCount(ContextIntProviders.exactly(definition.produceCount())))));
-            if (definition.bonusSeedTrials() > 0) {
+                .add(LootItem.lootTableItem(produce.get())
+                    .apply(SetItemCountFunction.setCount(ContextIntProviders.exactly(produceCount)))));
+            if (bonusSeedTrials > 0) {
                 table.withPool(LootPool.lootPool().setRolls(ContextIntProviders.exactly(1)).when(mature)
-                    .add(LootItem.lootTableItem(definition.entry().seed().get())
+                    .add(LootItem.lootTableItem(seed.get())
                         .apply(SetItemCountFunction.setCount(ContextIntProviders.exactly(0)))
                         .apply(ApplyBonusCount.addBonusBinomialDistributionCount(
                             registries.lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(Enchantments.FORTUNE),
-                            0.5714286F, definition.bonusSeedTrials()))));
+                            0.5714286F, bonusSeedTrials))));
             }
         }
         table.apply(ApplyExplosionDecay.explosionDecay());

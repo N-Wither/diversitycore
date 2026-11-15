@@ -11,8 +11,17 @@ import net.minecraft.world.level.block.Block;
 public record CropDefinition(CropEntry entry, CropSettings settings,
         List<Identifier> textures, List<Identifier> upperTextures,
         Map<String, String> names, Set<TagKey<Block>> tags,
-        int produceCount, int bonusSeedTrials) {
+        int produceCount, int bonusSeedTrials, CropModelType model) {
+    public CropDefinition(CropEntry entry, CropSettings settings,
+            List<Identifier> textures, List<Identifier> upperTextures,
+            Map<String, String> names, Set<TagKey<Block>> tags,
+            int produceCount, int bonusSeedTrials) {
+        this(entry, settings, textures, upperTextures, names, tags,
+                produceCount, bonusSeedTrials, CropModelType.CROP);
+    }
+
     public CropDefinition {
+        java.util.Objects.requireNonNull(model);
         textures = List.copyOf(textures);
         upperTextures = List.copyOf(upperTextures);
         names = Map.copyOf(names);

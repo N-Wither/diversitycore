@@ -37,6 +37,11 @@ public final class CropClientVerification {
             var blocks = java.util.stream.Stream.concat(java.util.stream.Stream.of(definition.entry().block()), definition.entry().upperBlock().stream()).toList();
             for (var block : blocks) {
                 for (var state : block.get().getStateDefinition().getPossibleStates()) {
+                    var crop = block.get();
+                    double expectedHeight = crop.getMaxAge() == 0 ? 1 : (2 + 14.0 * crop.getAge(state) / crop.getMaxAge()) / 16;
+                    var shape = state.getShape(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO);
+                    if (Math.abs(shape.max(net.minecraft.core.Direction.Axis.Y) - expectedHeight) > 0.00001)
+                        throw new AssertionError("Wrong client crop outline: " + state);
                     var model = modelSet.get(state);
                     if (model == modelSet.missingModel()) throw new AssertionError("Missing crop model: " + state);
                     var parts = new java.util.ArrayList<net.minecraft.client.renderer.block.dispatch.BlockStateModelPart>();
@@ -44,6 +49,8 @@ public final class CropClientVerification {
                         state, net.minecraft.util.RandomSource.create(0), parts);
                     var quads = parts.stream().flatMap(part -> part.getQuads(null).stream()).toList();
                     if (quads.isEmpty()) throw new AssertionError("Empty crop geometry: " + state);
+                    int expectedQuads = definition.model() == net.aquiferic.diversitycore.api.registry.CropModelType.CROSS ? 4 : 8;
+                    if (quads.size() != expectedQuads) throw new AssertionError("Wrong crop plane count: " + state + ": " + quads.size());
                     for (var quad : quads) {
                         if (quad.materialInfo().layer() != net.minecraft.client.renderer.chunk.ChunkSectionLayer.CUTOUT) {
                             throw new AssertionError("Crop must use transparent cutout geometry: " + state);
@@ -51,6 +58,23 @@ public final class CropClientVerification {
                     }
                     checked++;
                 }
+            }
+        }
+        for (var definition : CropVerification.content.simpleCropDefinitions()) {
+            var block = definition.entry().block().get();
+            for (var state : block.getStateDefinition().getPossibleStates()) {
+                var model = modelSet.get(state);
+                if (model == modelSet.missingModel()) throw new AssertionError("Missing simple crop model: " + state);
+                var parts = new java.util.ArrayList<net.minecraft.client.renderer.block.dispatch.BlockStateModelPart>();
+                model.collectParts(net.minecraft.client.renderer.block.BlockAndTintGetter.EMPTY, net.minecraft.core.BlockPos.ZERO,
+                        state, net.minecraft.util.RandomSource.create(0), parts);
+                var quads = parts.stream().flatMap(part -> part.getQuads(null).stream()).toList();
+                int expected = definition.model() == net.aquiferic.diversitycore.api.registry.CropModelType.CROSS ? 4 : 8;
+                if (quads.size() != expected || quads.stream().anyMatch(quad ->
+                        quad.materialInfo().layer() != net.minecraft.client.renderer.chunk.ChunkSectionLayer.CUTOUT)) {
+                    throw new AssertionError("Wrong simple crop geometry or layer: " + state);
+                }
+                checked++;
             }
         }
         System.out.println("Crop client rendering verification passed (" + checked + " states, actual baked CUTOUT geometry)");

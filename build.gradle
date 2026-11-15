@@ -304,6 +304,21 @@ tasks.register('verifyCropResources') {
         assert json(assets + 'blockstates/crop_rice_top.json').variants.size() == 4
         assert json(assets + 'blockstates/crop_tall_top.json').variants.size() == 1
         assert json(assets + 'models/block/crop_single_stage0.json').parent == 'minecraft:block/crop'
+        assert json(assets + 'blockstates/vanilla_simple.json').variants.size() == 8
+        assert json(assets + 'models/block/vanilla_simple_stage0.json').parent == 'minecraft:block/crop'
+        assert json(assets + 'models/block/vanilla_cross_stage0.json').parent == 'minecraft:block/cross'
+        assert json(assets + 'lang/en_us.json')['block.diversitycore_verification.vanilla_simple'] == 'Simple Wheat'
+        assert json('data/diversitycore_verification/loot_table/blocks/vanilla_simple.json').pools
+        assert !new File(fixtureRoot, 'data/minecraft/loot_table/blocks/wheat.json').exists()
+        assert !new File(fixtureRoot, assets + 'items/vanilla_cross.json').exists()
+        ['crop_cross', 'crop_cross_tall', 'crop_cross_tall_top'].each { name ->
+            json(assets + 'blockstates/' + name + '.json').variants.values().each { variant ->
+                def model = json(assets + 'models/' + variant.model.split(':')[1] + '.json')
+                assert model.parent == 'minecraft:block/cross'
+                assert model.textures.cross
+                assert !model.textures.crop
+            }
+        }
         assert json(assets + 'models/item/crop_single_seeds.json').parent == 'minecraft:item/generated'
         assert json(assets + 'lang/zh_cn.json')['block.diversitycore_verification.crop_rice'] == '作物测试'
         assert !new File(fixtureRoot, assets + 'items/crop_rice_seeds.json').exists()

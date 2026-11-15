@@ -43,6 +43,7 @@ public final class CropVerification {
     private static final DeferredRegister<Consumer<GameTestHelper>> FUNCTIONS = DeferredRegister.create(Registries.TEST_FUNCTION, MODID);
     private static final Map<String, Consumer<GameTestHelper>> TESTS = new LinkedHashMap<>();
     static ContentRegistry content;
+    static SimpleCropEntry vanillaSimple, vanillaCross;
     static CropEntry single, tall, whole, water, rice, custom, stopped, minimum, maximum, externalSeed, bonus, conditional, tagged, waterWhole, tallBonus;
 
     private CropVerification() {}
@@ -50,7 +51,18 @@ public final class CropVerification {
     static void register(IEventBus bus, ContentRegistry registry) {
         contracts();
         content = registry;
+        vanillaSimple = registry.crops().createSimple("vanilla_simple")
+            .stageTextures(textures(8)).displayName("en_us", "Simple Wheat")
+            .seed(s -> s.texture("minecraft:item/wheat_seeds").displayName("en_us", "Simple Seeds"))
+            .produce(p -> p.texture("minecraft:item/wheat").displayName("en_us", "Simple Produce"))
+            .tag("diversitycore_verification:verification_crops").register();
+        vanillaCross = registry.crops().createSimple("vanilla_cross").model(CropModelType.CROSS)
+            .stageTextures(textures(8)).seed(s -> s.texture("minecraft:item/wheat_seeds"))
+            .produce(() -> Items.WHEAT).register();
         single = fixture("crop_single", 8).register();
+        fixture("crop_cross", 8).model(CropModelType.CROSS).register();
+        fixture("crop_cross_tall", 4).model(CropModelType.CROSS)
+            .tall(HarvestMode.REGENERATE).upperStages(4).upperTextures(textures(4)).register();
         tall = fixture("crop_tall", 5).tall(HarvestMode.REGENERATE).upperTextures(textures(1)).register();
         whole = fixture("crop_whole", 4).tall(HarvestMode.WHOLE_PLANT).upperTextures(textures(1)).register();
         water = fixture("crop_water", 4).shallowWater().selfSeeded().register();
@@ -83,6 +95,8 @@ public final class CropVerification {
         TESTS.put("crop_paired_fortune", CropVerification::pairedFortune);
         TESTS.put("crop_fluid_and_farmland", CropVerification::fluidAndFarmland);
         TESTS.put("crop_growth", CropVerification::growth);
+        TESTS.put("crop_vanilla_simple", CropVerification::vanillaSimple);
+        TESTS.put("crop_shapes", CropVerification::shapes);
         TESTS.put("crop_tall_growth", CropVerification::tallGrowth);
         TESTS.put("crop_water", CropVerification::water);
         TESTS.put("crop_substrate", CropVerification::substrate);
@@ -121,7 +135,27 @@ public final class CropVerification {
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     private static void contracts() {
+        var models = new ContentRegistry("crop_model_contracts");
+        models.crops().create("default_model").register();
+        require(models.cropDefinitions().getLast().model() == CropModelType.CROP, "Default crop model is unchanged");
+        var cross = models.crops().create("cross_model").model(CropModelType.CROSS);
+        expect(NullPointerException.class, () -> cross.model(null));
+        cross.register();
+        require(models.cropDefinitions().getLast().model() == CropModelType.CROSS, "Cross model is retained");
+        expect(IllegalStateException.class, () -> cross.model(CropModelType.CROP));
         var registry = new ContentRegistry("crop_contracts");
+        var simple = registry.crops().createSimple("simple");
+        expect(IllegalArgumentException.class, () -> simple.stageTextures("minecraft:block/dirt"));
+        var simpleEntry = simple.register();
+        require(!simpleEntry.block().isBound(), "Simple crops stay deferred");
+        expect(IllegalStateException.class, simple::register);
+        expect(IllegalStateException.class, () -> simple.model(CropModelType.CROSS));
+        expect(IllegalArgumentException.class, () -> registry.crops().create("simple").register());
+        var simpleConflict = new ContentRegistry("simple_conflicts");
+        simpleConflict.items().create("occupied_seeds").register();
+        expect(IllegalArgumentException.class, () -> simpleConflict.crops().createSimple("occupied").register());
+        require(simpleConflict.simpleCropDefinitions().isEmpty(), "Simple crop ID conflict is atomic");
+        simpleConflict.blocks().create("occupied").noItem().register();
         var byString = registry.crops().create("by_string").shallowWater().substrate("minecraft:sand").register();
         registry.crops().create("by_key").substrate(BlockTags.SAND).shallowWater().register();
         require(registry.cropDefinitions().get(0).settings().substrate().equals(registry.cropDefinitions().get(1).settings().substrate()), "Substrate overloads and preset order agree");
@@ -192,6 +226,57 @@ public final class CropVerification {
     private static void bone(GameTestHelper h, BlockPos pos) {
         var state = h.getLevel().getBlockState(pos);
         ((CropPlantBlock) state.getBlock()).performBonemeal(h.getLevel(), h.getLevel().getRandom(), pos, state, BonemealSource.INTERACTION);
+    }
+
+    private static void shapes(GameTestHelper h) {
+        for (var definition : content.cropDefinitions()) {
+            var parts = java.util.stream.Stream.concat(java.util.stream.Stream.of(definition.entry().block()), definition.entry().upperBlock().stream()).toList();
+            for (var part : parts) {
+                var block = part.get();
+                for (int age = 0; age <= block.getMaxAge(); age++) {
+                    var state = block.getStateForAge(age);
+                    double expected = block.getMaxAge() == 0 ? 1 : (2 + 14.0 * age / block.getMaxAge()) / 16;
+                    var shape = state.getShape(h.getLevel(), h.absolutePos(POS));
+                    h.assertTrue(Math.abs(shape.max(Direction.Axis.Y) - expected) < 0.00001, "Crop outline follows age: " + state);
+                    var visual = state.getVisualShape(h.getLevel(), h.absolutePos(POS), net.minecraft.world.phys.shapes.CollisionContext.empty());
+                    h.assertTrue(Math.abs(visual.max(Direction.Axis.Y) - expected) < 0.00001, "Crop visual shape follows age: " + state);
+                    h.assertTrue(state.getCollisionShape(h.getLevel(), h.absolutePos(POS)).isEmpty(), "Crops do not block movement");
+                }
+            }
+        }
+        h.succeed();
+    }
+
+    private static void vanillaSimple(GameTestHelper h) {
+        var block = vanillaSimple.block().get();
+        var pos = h.absolutePos(POS);
+        var level = h.getLevel();
+        h.assertTrue(block instanceof net.minecraft.world.level.block.CropBlock, "Simple crop extends vanilla CropBlock");
+        h.assertTrue(block.getMaxAge() == 7 && block.defaultBlockState().hasProperty(net.minecraft.world.level.block.CropBlock.AGE), "Uses vanilla age property recognized by Jade");
+        level.setBlockAndUpdate(pos.below(), Blocks.FARMLAND.defaultBlockState());
+        level.setBlockAndUpdate(pos.above(), Blocks.GLOWSTONE.defaultBlockState());
+        for (int age = 0; age <= 7; age++) {
+            var state = block.getStateForAge(age);
+            var wheat = ((net.minecraft.world.level.block.CropBlock) Blocks.WHEAT).getStateForAge(age);
+            h.assertTrue(state.getShape(level, pos).bounds().equals(wheat.getShape(level, pos).bounds()), "Simple outline matches vanilla at every age");
+            h.assertTrue(state.getCollisionShape(level, pos).isEmpty(), "No movement collision");
+        }
+        var player = h.makeMockServerPlayer(GameType.SURVIVAL);
+        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(vanillaSimple.seed().get(), 2));
+        var hit = new BlockHitResult(Vec3.atCenterOf(pos.below()), Direction.UP, pos.below(), false);
+        vanillaSimple.seed().get().useOn(new UseOnContext(player, InteractionHand.MAIN_HAND, hit));
+        h.assertTrue(level.getBlockState(pos).is(block), "Simple seeds plant the correct crop");
+        var immature = net.minecraft.world.level.block.Block.getDrops(level.getBlockState(pos), level, pos, null);
+        h.assertTrue(immature.stream().noneMatch(s -> s.is(vanillaSimple.produce().get())), "Immature simple crops drop no produce");
+        for (int i = 0; i < 8; i++) block.performBonemeal(level, level.getRandom(), pos, level.getBlockState(pos), BonemealSource.INTERACTION);
+        h.assertTrue(block.isMaxAge(level.getBlockState(pos)), "Vanilla bonemeal reaches maturity");
+        h.assertTrue(!block.isValidBonemealTarget(level, pos, level.getBlockState(pos), BonemealSource.INTERACTION), "Mature simple crops reject bonemeal");
+        var mature = net.minecraft.world.level.block.Block.getDrops(level.getBlockState(pos), level, pos, null);
+        h.assertTrue(mature.stream().filter(s -> s.is(vanillaSimple.produce().get())).mapToInt(ItemStack::getCount).sum() == 1, "Mature crop drops its configured produce");
+        h.assertTrue(mature.stream().anyMatch(s -> s.is(vanillaSimple.seed().get())), "Mature crop returns seed");
+        level.setBlockAndUpdate(pos.below(), Blocks.STONE.defaultBlockState());
+        h.assertTrue(!level.getBlockState(pos).is(block), "Vanilla soil survival rules apply");
+        h.succeed();
     }
 
     private static void growth(GameTestHelper h) {

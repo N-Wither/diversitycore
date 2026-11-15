@@ -99,6 +99,17 @@ public class CropPlantBlock extends VegetationBlock implements BonemealableBlock
     }
 
     @Override
+    protected VoxelShape getVisualShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        return shapes[getAge(state)];
+    }
+
+    @Override
+    protected VoxelShape getEntityInsideCollisionShape(BlockState state, BlockGetter level, BlockPos pos,
+            net.minecraft.world.entity.Entity entity) {
+        return shapes[getAge(state)];
+    }
+
+    @Override
     public @Nullable BlockState getStateForPlacement(BlockPlaceContext context) {
         if (upper) return null;
         BlockState state = defaultBlockState();
