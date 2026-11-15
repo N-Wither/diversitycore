@@ -25,6 +25,7 @@ import net.minecraft.world.level.material.PushReaction;
 public final class CropBuilder extends ContentBuilder<CropBuilder> {
     int stages = 8;
     CropModelType model = CropModelType.CROP;
+    net.aquiferic.diversitycore.api.loot.CropLootFactory loot;
     int upperStages = 1;
     HarvestMode harvestMode;
     boolean aquatic;
@@ -56,6 +57,13 @@ public final class CropBuilder extends ContentBuilder<CropBuilder> {
 
     @Override
     protected CropBuilder self() { return this; }
+
+    /** Completely replaces generated default loot for each part; invoked only during datagen. */
+    public CropBuilder loot(net.aquiferic.diversitycore.api.loot.CropLootFactory factory) {
+        ensureMutable();
+        loot = Objects.requireNonNull(factory);
+        return this;
+    }
 
     public CropBuilder stages(int count) {
         ensureMutable();

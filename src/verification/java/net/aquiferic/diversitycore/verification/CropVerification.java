@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import net.aquiferic.diversitycore.api.registry.*;
+import net.aquiferic.diversitycore.api.loot.CropLootTables;
 import net.aquiferic.diversitycore.content.block.CropPlantBlock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -43,7 +44,11 @@ public final class CropVerification {
     private static final DeferredRegister<Consumer<GameTestHelper>> FUNCTIONS = DeferredRegister.create(Registries.TEST_FUNCTION, MODID);
     private static final Map<String, Consumer<GameTestHelper>> TESTS = new LinkedHashMap<>();
     static ContentRegistry content;
-    static SimpleCropEntry vanillaSimple, vanillaCross;
+    static SimpleCropEntry vanillaSimple, vanillaCross, simpleSelfSeeded;
+    static SimpleCropEntry customSimpleLoot;
+    static SimpleCropEntry rangedProduceFortune;
+    static CropEntry fixedProduceFortune, disabledProduceFortune;
+    static CropEntry customTallLoot, customNativeLoot, emptyLoot;
     static CropEntry single, tall, whole, water, rice, custom, stopped, minimum, maximum, externalSeed, bonus, conditional, tagged, waterWhole, tallBonus;
 
     private CropVerification() {}
@@ -51,6 +56,33 @@ public final class CropVerification {
     static void register(IEventBus bus, ContentRegistry registry) {
         contracts();
         content = registry;
+        var fortuneConfig = CropLootTables.crop().produce(2, true).bonusSeeds(0);
+        var fortuneSnapshot = fortuneConfig.build();
+        fortuneConfig.produce(2, false);
+        fixedProduceFortune = fixture("fixed_produce_fortune", 8).loot(fortuneSnapshot).register();
+        disabledProduceFortune = fixture("disabled_produce_fortune", 8)
+            .loot(CropLootTables.crop().produce(2, true).produce(2).bonusSeeds(0).build()).register();
+        rangedProduceFortune = registry.crops().createSimple("ranged_produce_fortune")
+            .stageTextures(textures(8)).seed(s -> s.texture("minecraft:item/wheat_seeds"))
+            .produce(p -> p.texture("minecraft:item/wheat"))
+            .loot(CropLootTables.crop().produce(2, 4, true).bonusSeeds(0).build()).register();
+        var lootConfig = CropLootTables.crop().produce(2, 4, false).seeds(2).bonusSeeds(0);
+        var lootSnapshot = lootConfig.build();
+        lootConfig.produce(50);
+        customSimpleLoot = registry.crops().createSimple("custom_simple_loot")
+            .stageTextures(textures(8)).seed(s -> s.texture("minecraft:item/wheat_seeds"))
+            .produce(p -> p.texture("minecraft:item/wheat")).loot(lootSnapshot).register();
+        customTallLoot = fixture("custom_tall_loot", 4).tall(HarvestMode.REGENERATE)
+            .upperTextures(textures(1)).produceCount(50).bonusSeedTrials(64)
+            .loot(CropLootTables.crop().produce(3).seeds(2).bonusSeeds(0).build()).register();
+        customNativeLoot = fixture("custom_native_loot", 8).loot(context ->
+            net.minecraft.world.level.storage.loot.LootTable.lootTable().withPool(
+                net.minecraft.world.level.storage.loot.LootPool.lootPool()
+                    .setRolls(net.minecraft.world.level.storage.loot.providers.number.ints.ContextIntProviders.exactly(1))
+                    .add(net.minecraft.world.level.storage.loot.entries.LootItem.lootTableItem(Items.DIAMOND)
+                        .apply(net.minecraft.world.level.storage.loot.functions.SetItemCountFunction.setCount(
+                            net.minecraft.world.level.storage.loot.providers.number.ints.ContextIntProviders.exactly(3)))))).register();
+        emptyLoot = fixture("custom_empty_loot", 8).loot(CropLootTables.empty()).register();
         vanillaSimple = registry.crops().createSimple("vanilla_simple")
             .stageTextures(textures(8)).displayName("en_us", "Simple Wheat")
             .seed(s -> s.texture("minecraft:item/wheat_seeds").displayName("en_us", "Simple Seeds"))
@@ -59,6 +91,12 @@ public final class CropVerification {
         vanillaCross = registry.crops().createSimple("vanilla_cross").model(CropModelType.CROSS)
             .stageTextures(textures(8)).seed(s -> s.texture("minecraft:item/wheat_seeds"))
             .produce(() -> Items.WHEAT).register();
+        simpleSelfSeeded = registry.crops().createSimple("simple_self_seeded")
+            .stageTextures(textures(8)).selfSeeded()
+            .produce(p -> p.texture("minecraft:item/potato").displayName("en_us", "Simple Potato")
+                .properties(properties -> properties.food(new net.minecraft.world.food.FoodProperties.Builder()
+                    .nutrition(1).saturationModifier(0.5F).build())))
+            .loot(CropLootTables.crop().seeds(1).produce(2).bonusSeeds(0).build()).register();
         single = fixture("crop_single", 8).register();
         fixture("crop_cross", 8).model(CropModelType.CROSS).register();
         fixture("crop_cross_tall", 4).model(CropModelType.CROSS)
@@ -95,7 +133,10 @@ public final class CropVerification {
         TESTS.put("crop_paired_fortune", CropVerification::pairedFortune);
         TESTS.put("crop_fluid_and_farmland", CropVerification::fluidAndFarmland);
         TESTS.put("crop_growth", CropVerification::growth);
+        TESTS.put("crop_custom_loot", CropVerification::customLoot);
+        TESTS.put("crop_produce_fortune", CropVerification::produceFortune);
         TESTS.put("crop_vanilla_simple", CropVerification::vanillaSimple);
+        TESTS.put("crop_simple_self_seeded", CropVerification::simpleSelfSeeded);
         TESTS.put("crop_shapes", CropVerification::shapes);
         TESTS.put("crop_tall_growth", CropVerification::tallGrowth);
         TESTS.put("crop_water", CropVerification::water);
@@ -144,6 +185,20 @@ public final class CropVerification {
         require(models.cropDefinitions().getLast().model() == CropModelType.CROSS, "Cross model is retained");
         expect(IllegalStateException.class, () -> cross.model(CropModelType.CROP));
         var registry = new ContentRegistry("crop_contracts");
+        expect(IllegalArgumentException.class, () -> CropLootTables.crop().produce(-1));
+        expect(IllegalArgumentException.class, () -> CropLootTables.crop().seeds(3, 2));
+        expect(IllegalArgumentException.class, () -> CropLootTables.crop().bonusSeeds(65));
+        var lootCalls = new AtomicInteger();
+        var lootRegistry = new ContentRegistry("loot_contracts");
+        var lootBuilder = lootRegistry.crops().create("loot_lifecycle").loot(context -> {
+            lootCalls.incrementAndGet();
+            return net.minecraft.world.level.storage.loot.LootTable.lootTable();
+        });
+        lootBuilder.register();
+        require(lootCalls.get() == 0, "Loot callbacks are deferred until datagen");
+        expect(IllegalStateException.class, () -> lootBuilder.loot(CropLootTables.empty()));
+        expect(NullPointerException.class, () -> registry.crops().createSimple("null_loot").loot(null));
+        expect(NullPointerException.class, () -> registry.crops().create("null_loot").loot(null));
         var simple = registry.crops().createSimple("simple");
         expect(IllegalArgumentException.class, () -> simple.stageTextures("minecraft:block/dirt"));
         var simpleEntry = simple.register();
@@ -151,6 +206,24 @@ public final class CropVerification {
         expect(IllegalStateException.class, simple::register);
         expect(IllegalStateException.class, () -> simple.model(CropModelType.CROSS));
         expect(IllegalArgumentException.class, () -> registry.crops().create("simple").register());
+        var selfRegistry = new ContentRegistry("simple_self_contracts");
+        selfRegistry.items().create("self_seeds").register();
+        var selfBuilder = selfRegistry.crops().createSimple("self")
+            .produce(p -> p.displayName("en_us", "Self Produce")).selfSeeded();
+        var selfEntry = selfBuilder.register();
+        require(selfEntry.seed() == selfEntry.produce(), "Simple self-seeded crops share one item reference");
+        require(selfRegistry.creativeItems().size() == 2, "Simple self-seeded crops do not register separate seeds");
+        expect(IllegalStateException.class, selfBuilder::selfSeeded);
+        expect(IllegalStateException.class, () -> selfRegistry.crops().createSimple("seed_callback").seed(p -> {}).selfSeeded());
+        expect(IllegalStateException.class, () -> selfRegistry.crops().createSimple("seed_reference").seed(() -> Items.POTATO).selfSeeded());
+        expect(IllegalStateException.class, () -> selfRegistry.crops().createSimple("produce_reference").produce(() -> Items.POTATO).selfSeeded());
+        var selfOnly = selfRegistry.crops().createSimple("self_only").selfSeeded();
+        expect(IllegalStateException.class, () -> selfOnly.seed(p -> {}));
+        expect(IllegalStateException.class, () -> selfOnly.seed(() -> Items.POTATO));
+        expect(IllegalStateException.class, () -> selfOnly.produce(() -> Items.POTATO));
+        selfRegistry.items().create("occupied").register();
+        expect(IllegalArgumentException.class, () -> selfRegistry.crops().createSimple("occupied").selfSeeded().register());
+        selfRegistry.blocks().create("occupied").noItem().register();
         var simpleConflict = new ContentRegistry("simple_conflicts");
         simpleConflict.items().create("occupied_seeds").register();
         expect(IllegalArgumentException.class, () -> simpleConflict.crops().createSimple("occupied").register());
@@ -247,6 +320,31 @@ public final class CropVerification {
         h.succeed();
     }
 
+    private static void simpleSelfSeeded(GameTestHelper h) {
+        var block = simpleSelfSeeded.block().get();
+        var item = simpleSelfSeeded.produce().get();
+        var level = h.getLevel();
+        var pos = h.absolutePos(POS);
+        h.assertTrue(item == simpleSelfSeeded.seed().get(), "Produce is also the seed");
+        h.assertTrue(item.components().has(net.minecraft.core.component.DataComponents.FOOD), "Self-seeded produce retains food properties");
+        level.setBlockAndUpdate(pos.below(), Blocks.FARMLAND.defaultBlockState());
+        level.setBlockAndUpdate(pos.above(), Blocks.GLOWSTONE.defaultBlockState());
+        var player = h.makeMockServerPlayer(GameType.SURVIVAL);
+        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(item, 2));
+        var hit = new BlockHitResult(Vec3.atCenterOf(pos.below()), Direction.UP, pos.below(), false);
+        item.useOn(new UseOnContext(player, InteractionHand.MAIN_HAND, hit));
+        h.assertTrue(level.getBlockState(pos).is(block), "Produce plants the simple crop");
+        h.assertTrue(player.getMainHandItem().getCount() == 1, "Planting consumes one produce");
+        for (int age : new int[]{0, 7}) {
+            var state = block.getStateForAge(age);
+            var drops = net.minecraft.world.level.block.Block.getDrops(state, level, pos, null);
+            h.assertTrue(drops.stream().allMatch(stack -> stack.is(item)), "Only the self-seeded produce drops");
+            h.assertTrue(drops.stream().mapToInt(ItemStack::getCount).sum() == (age == 7 ? 3 : 1),
+                    "Immature crop returns one item; mature crop includes configured produce");
+        }
+        h.succeed();
+    }
+
     private static void vanillaSimple(GameTestHelper h) {
         var block = vanillaSimple.block().get();
         var pos = h.absolutePos(POS);
@@ -276,6 +374,87 @@ public final class CropVerification {
         h.assertTrue(mature.stream().anyMatch(s -> s.is(vanillaSimple.seed().get())), "Mature crop returns seed");
         level.setBlockAndUpdate(pos.below(), Blocks.STONE.defaultBlockState());
         h.assertTrue(!level.getBlockState(pos).is(block), "Vanilla soil survival rules apply");
+        h.succeed();
+    }
+
+    private static void produceFortune(GameTestHelper h) {
+        verifyProduceFortune(h, fixedProduceFortune.block().get().getStateForAge(7), fixedProduceFortune.produce().get(), 2, 2, true);
+        verifyProduceFortune(h, disabledProduceFortune.block().get().getStateForAge(7), disabledProduceFortune.produce().get(), 2, 2, false);
+        verifyProduceFortune(h, rangedProduceFortune.block().get().getStateForAge(7), rangedProduceFortune.produce().get(), 2, 4, true);
+        verifyProduceFortune(h, customSimpleLoot.block().get().getStateForAge(7), customSimpleLoot.produce().get(), 2, 4, false);
+        verifyProduceFortune(h, rangedProduceFortune.block().get().getStateForAge(0), rangedProduceFortune.produce().get(), 0, 0, false);
+        h.succeed();
+    }
+
+    private static void verifyProduceFortune(GameTestHelper h, net.minecraft.world.level.block.state.BlockState state,
+            Item produce, int min, int max, boolean enabled) {
+        var pos = h.absolutePos(POS);
+        var table = h.getLevel().getServer().reloadableRegistries().getLootTable(state.getBlock().getLootTable().orElseThrow());
+        var tool = new ItemStack(Items.DIAMOND_HOE);
+        tool.enchant(h.getLevel().registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(
+                net.minecraft.world.item.enchantment.Enchantments.FORTUNE), 3);
+        var plain = new net.minecraft.world.level.storage.loot.LootParams.Builder(h.getLevel())
+                .withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.BLOCK_STATE, state)
+                .withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.ORIGIN, Vec3.atCenterOf(pos))
+                .withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.TOOL, ItemStack.EMPTY)
+                .create(net.minecraft.world.level.storage.loot.parameters.LootContextParamSets.BLOCK);
+        var enchanted = new net.minecraft.world.level.storage.loot.LootParams.Builder(h.getLevel())
+                .withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.BLOCK_STATE, state)
+                .withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.ORIGIN, Vec3.atCenterOf(pos))
+                .withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.TOOL, tool)
+                .create(net.minecraft.world.level.storage.loot.parameters.LootContextParamSets.BLOCK);
+        int normalTotal = 0, fortuneTotal = 0;
+        for (int seed = 1; seed <= 128; seed++) {
+            var a = table.getRandomItems(plain, seed);
+            var b = table.getRandomItems(enchanted, seed);
+            int normal = a.stream().filter(s -> s.is(produce)).mapToInt(ItemStack::getCount).sum();
+            int fortune = b.stream().filter(s -> s.is(produce)).mapToInt(ItemStack::getCount).sum();
+            h.assertTrue(normal >= min && normal <= max, "Unenchanted produce stays in the base range");
+            h.assertTrue(enabled ? fortune >= normal && fortune <= normal + 3 : fortune == normal,
+                    "Produce Fortune is applied only when enabled and only at maturity");
+            h.assertTrue(a.stream().filter(s -> !s.is(produce)).mapToInt(ItemStack::getCount).sum()
+                    == b.stream().filter(s -> !s.is(produce)).mapToInt(ItemStack::getCount).sum(), "Produce Fortune does not alter base seeds");
+            normalTotal += normal;
+            fortuneTotal += fortune;
+        }
+        h.assertTrue(enabled ? fortuneTotal > normalTotal : fortuneTotal == normalTotal, "Fortune increases yield only when enabled");
+    }
+
+    private static void customLoot(GameTestHelper h) {
+        var level = h.getLevel();
+        var pos = h.absolutePos(POS);
+        level.setBlockAndUpdate(pos.below(), Blocks.FARMLAND.defaultBlockState());
+        level.setBlockAndUpdate(pos.above(), Blocks.GLOWSTONE.defaultBlockState());
+        var simple = customSimpleLoot.block().get();
+        level.setBlockAndUpdate(pos, simple.getStateForAge(0));
+        var immature = net.minecraft.world.level.block.Block.getDrops(level.getBlockState(pos), level, pos, null);
+        h.assertTrue(immature.size() == 1 && immature.getFirst().is(customSimpleLoot.seed().get()) && immature.getFirst().getCount() == 2,
+                "Custom immature loot replaces default seed count");
+        level.setBlockAndUpdate(pos, simple.getStateForAge(7));
+        boolean sawMin = false, sawMax = false;
+        for (int i = 0; i < 128; i++) {
+            var drops = net.minecraft.world.level.block.Block.getDrops(level.getBlockState(pos), level, pos, null);
+            int produce = drops.stream().filter(s -> s.is(customSimpleLoot.produce().get())).mapToInt(ItemStack::getCount).sum();
+            int seeds = drops.stream().filter(s -> s.is(customSimpleLoot.seed().get())).mapToInt(ItemStack::getCount).sum();
+            h.assertTrue(produce >= 2 && produce <= 4 && seeds == 2, "Custom uniform produce range and fixed seeds; factory settings are snapshotted");
+            sawMin |= produce == 2;
+            sawMax |= produce == 4;
+        }
+        h.assertTrue(sawMin && sawMax, "Both inclusive random endpoints are reachable");
+        pos = place(h, customTallLoot, 3);
+        var rootDrops = net.minecraft.world.level.block.Block.getDrops(level.getBlockState(pos), level, pos, null);
+        h.assertTrue(rootDrops.size() == 1 && rootDrops.getFirst().is(customTallLoot.seed().get()) && rootDrops.getFirst().getCount() == 2,
+                "Tall root only yields configured base seeds");
+        level.setBlockAndUpdate(pos.above(), customTallLoot.upperBlock().orElseThrow().get().defaultBlockState());
+        var topDrops = net.minecraft.world.level.block.Block.getDrops(level.getBlockState(pos.above()), level, pos.above(), null);
+        h.assertTrue(topDrops.size() == 1 && topDrops.getFirst().is(customTallLoot.produce().get()) && topDrops.getFirst().getCount() == 3,
+                "Single-stage upper part is mature; custom table overrides legacy count and bonus settings");
+        pos = place(h, customNativeLoot, 0);
+        var nativeDrops = net.minecraft.world.level.block.Block.getDrops(level.getBlockState(pos), level, pos, null);
+        h.assertTrue(nativeDrops.size() == 1 && nativeDrops.getFirst().is(Items.DIAMOND) && nativeDrops.getFirst().getCount() == 3,
+                "Native callback fully replaces defaults including maturity rules");
+        pos = place(h, emptyLoot, 7);
+        h.assertTrue(net.minecraft.world.level.block.Block.getDrops(level.getBlockState(pos), level, pos, null).isEmpty(), "Empty custom table drops nothing");
         h.succeed();
     }
 

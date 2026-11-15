@@ -9,8 +9,15 @@ import net.minecraft.world.level.block.Block;
 
 /** Immutable resource metadata for a simple crop. */
 public record SimpleCropDefinition(SimpleCropEntry entry, List<Identifier> textures,
-        CropModelType model, Map<String, String> names, Set<TagKey<Block>> tags) {
+        CropModelType model, Map<String, String> names, Set<TagKey<Block>> tags,
+        java.util.Optional<net.aquiferic.diversitycore.api.loot.CropLootFactory> loot) {
+    public SimpleCropDefinition(SimpleCropEntry entry, List<Identifier> textures,
+            CropModelType model, Map<String, String> names, Set<TagKey<Block>> tags) {
+        this(entry, textures, model, names, tags, java.util.Optional.empty());
+    }
+
     public SimpleCropDefinition {
+        java.util.Objects.requireNonNull(loot);
         textures = List.copyOf(textures);
         java.util.Objects.requireNonNull(model);
         names = Map.copyOf(names);

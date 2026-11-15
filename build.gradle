@@ -311,6 +311,13 @@ tasks.register('verifyCropResources') {
         assert json('data/diversitycore_verification/loot_table/blocks/vanilla_simple.json').pools
         assert !new File(fixtureRoot, 'data/minecraft/loot_table/blocks/wheat.json').exists()
         assert !new File(fixtureRoot, assets + 'items/vanilla_cross.json').exists()
+        assert json(assets + 'items/simple_self_seeded.json').model
+        assert json(assets + 'models/item/simple_self_seeded.json').textures.layer0 == 'minecraft:item/potato'
+        assert json(assets + 'lang/en_us.json')['item.diversitycore_verification.simple_self_seeded'] == 'Simple Potato'
+        assert !new File(fixtureRoot, assets + 'items/simple_self_seeded_seeds.json').exists()
+        assert !new File(fixtureRoot, assets + 'models/item/simple_self_seeded_seeds.json').exists()
+        def selfLoot = json('data/diversitycore_verification/loot_table/blocks/simple_self_seeded.json')
+        assert selfLoot.pools.every { pool -> pool.entries.every { it.name == 'diversitycore_verification:simple_self_seeded' } }
         ['crop_cross', 'crop_cross_tall', 'crop_cross_tall_top'].each { name ->
             json(assets + 'blockstates/' + name + '.json').variants.values().each { variant ->
                 def model = json(assets + 'models/' + variant.model.split(':')[1] + '.json')

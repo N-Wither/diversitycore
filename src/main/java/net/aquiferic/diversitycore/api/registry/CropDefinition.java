@@ -11,7 +11,14 @@ import net.minecraft.world.level.block.Block;
 public record CropDefinition(CropEntry entry, CropSettings settings,
         List<Identifier> textures, List<Identifier> upperTextures,
         Map<String, String> names, Set<TagKey<Block>> tags,
-        int produceCount, int bonusSeedTrials, CropModelType model) {
+        int produceCount, int bonusSeedTrials, CropModelType model,
+        java.util.Optional<net.aquiferic.diversitycore.api.loot.CropLootFactory> loot) {
+    public CropDefinition(CropEntry entry, CropSettings settings,
+            List<Identifier> textures, List<Identifier> upperTextures,
+            Map<String, String> names, Set<TagKey<Block>> tags,
+            int produceCount, int bonusSeedTrials, CropModelType model) {
+        this(entry, settings, textures, upperTextures, names, tags, produceCount, bonusSeedTrials, model, java.util.Optional.empty());
+    }
     public CropDefinition(CropEntry entry, CropSettings settings,
             List<Identifier> textures, List<Identifier> upperTextures,
             Map<String, String> names, Set<TagKey<Block>> tags,
@@ -21,6 +28,7 @@ public record CropDefinition(CropEntry entry, CropSettings settings,
     }
 
     public CropDefinition {
+        java.util.Objects.requireNonNull(loot);
         java.util.Objects.requireNonNull(model);
         textures = List.copyOf(textures);
         upperTextures = List.copyOf(upperTextures);

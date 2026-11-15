@@ -17,9 +17,11 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 
-/** Resource and item configuration only; vanilla crop behavior is fixed. */
+/** Resource, item and loot configuration; vanilla crop growth behavior is fixed. */
 public final class SimpleCropBuilder extends ContentBuilder<SimpleCropBuilder> {
+    boolean selfSeeded;
     CropModelType model = CropModelType.CROP;
+    net.aquiferic.diversitycore.api.loot.CropLootFactory loot;
     final Set<TagKey<Block>> tags = new LinkedHashSet<>();
     final ItemBuilder<Item> seedBuilder;
     final ItemBuilder<Item> produceBuilder;
@@ -34,11 +36,19 @@ public final class SimpleCropBuilder extends ContentBuilder<SimpleCropBuilder> {
         super(registry, id, "block");
         seedBuilder = new ItemBuilder<>(registry, id.withSuffix("_seeds"),
                 p -> new CropSeedItem(entry.block().get(), p), true);
-        produceBuilder = new ItemBuilder<>(registry, id, Item::new, true);
+        produceBuilder = new ItemBuilder<>(registry, id,
+                p -> selfSeeded ? new CropSeedItem(entry.block().get(), p) : new Item(p), true);
     }
 
     @Override
     protected SimpleCropBuilder self() { return this; }
+
+    /** Completely replaces generated default loot; invoked only during datagen. */
+    public SimpleCropBuilder loot(net.aquiferic.diversitycore.api.loot.CropLootFactory factory) {
+        ensureMutable();
+        loot = Objects.requireNonNull(factory);
+        return this;
+    }
 
     public SimpleCropBuilder model(CropModelType type) {
         ensureMutable();
@@ -64,7 +74,7 @@ public final class SimpleCropBuilder extends ContentBuilder<SimpleCropBuilder> {
 
     public SimpleCropBuilder seed(Consumer<ItemBuilder<Item>> configure) {
         ensureMutable();
-        if (existingSeed != null) throw new IllegalStateException("Seed already referenced: " + id);
+        if (existingSeed != null || selfSeeded) throw new IllegalStateException("No generated seed to configure: " + id);
         Objects.requireNonNull(configure).accept(seedBuilder);
         seedConfigured = true;
         return this;
@@ -72,7 +82,7 @@ public final class SimpleCropBuilder extends ContentBuilder<SimpleCropBuilder> {
 
     public SimpleCropBuilder seed(Supplier<? extends Item> seed) {
         ensureMutable();
-        if (seedConfigured) throw new IllegalStateException("Seed already configured: " + id);
+        if (seedConfigured || selfSeeded) throw new IllegalStateException("Seed already configured: " + id);
         existingSeed = Objects.requireNonNull(seed);
         return this;
     }
@@ -87,8 +97,18 @@ public final class SimpleCropBuilder extends ContentBuilder<SimpleCropBuilder> {
 
     public SimpleCropBuilder produce(Supplier<? extends Item> produce) {
         ensureMutable();
-        if (produceConfigured) throw new IllegalStateException("Produce already configured: " + id);
+        if (produceConfigured || selfSeeded) throw new IllegalStateException("Produce already configured: " + id);
         existingProduce = Objects.requireNonNull(produce);
+        return this;
+    }
+
+    /** Generated produce becomes the plantable item; configure it with produce(...). */
+    public SimpleCropBuilder selfSeeded() {
+        ensureMutable();
+        if (existingSeed != null || seedConfigured || existingProduce != null) {
+            throw new IllegalStateException("Self-seeded crops require generated produce and no separate seed: " + id);
+        }
+        selfSeeded = true;
         return this;
     }
 

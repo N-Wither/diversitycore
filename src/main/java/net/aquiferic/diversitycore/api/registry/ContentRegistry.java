@@ -157,7 +157,7 @@ public final class ContentRegistry {
         var seed = builder.selfSeeded ? produce : builder.existingSeed != null ? builder.existingSeed : addItem(builder.seedBuilder);
         builder.entry = new CropEntry(root, upper, seed, produce);
         cropDefinitions.add(new CropDefinition(builder.entry, settings, textures, upperTextures,
-            builder.names, builder.tags, builder.produceCount, builder.bonusSeedTrials, builder.model));
+            builder.names, builder.tags, builder.produceCount, builder.bonusSeedTrials, builder.model, Optional.ofNullable(builder.loot)));
         return builder.entry;
     }
 
@@ -166,15 +166,15 @@ public final class ContentRegistry {
         String path = builder.id.getPath();
         checkAvailable(blockNames, path, "crop block");
         if (builder.existingProduce == null) checkAvailable(itemNames, path, "crop produce");
-        if (builder.existingSeed == null) checkAvailable(itemNames, path + "_seeds", "crop seed");
+        if (!builder.selfSeeded && builder.existingSeed == null) checkAvailable(itemNames, path + "_seeds", "crop seed");
         var block = blockRegister.registerBlock(path,
                 p -> new SimpleCropPlantBlock(p, () -> builder.entry.seed().get()), builder::createProperties);
         blockNames.add(path);
         var produce = builder.existingProduce != null ? builder.existingProduce : addItem(builder.produceBuilder);
-        var seed = builder.existingSeed != null ? builder.existingSeed : addItem(builder.seedBuilder);
+        var seed = builder.selfSeeded ? produce : builder.existingSeed != null ? builder.existingSeed : addItem(builder.seedBuilder);
         builder.entry = new SimpleCropEntry(block, seed, produce);
         simpleCropDefinitions.add(new SimpleCropDefinition(builder.entry, builder.textures(),
-                builder.model, builder.names, builder.tags));
+                builder.model, builder.names, builder.tags, Optional.ofNullable(builder.loot)));
         return builder.entry;
     }
 

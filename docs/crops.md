@@ -16,10 +16,25 @@ public static final SimpleCropEntry CABBAGE = CONTENT.crops().createSimple("cabb
     .register();
 ```
 
-返回的 `SimpleCropBuilder` 仅支持名称、纹理、模型、标签和种子/产物配置，不提供 `stages()`、
-两格、浅水、自种、基底、生存/生长条件或自定义方块属性等特殊功能。`stageTextures()` 必须提供 8 张纹理；
+返回的 `SimpleCropBuilder` 支持名称、纹理、模型、标签、种子/产物和掉落表配置，不提供 `stages()`、
+两格、浅水、基底、生存/生长条件或自定义方块属性等特殊功能。`stageTextures()` 必须提供 8 张纹理；
 默认路径与下文相同。默认生成独立种子和产物，也支持引用已有物品；已有种子仍需正确种植该作物。
-掉落固定为保底 1 粒种子，成熟额外 1 个产物及原版小麦概率的奖励种子（含时运）。
+默认掉落为保底 1 粒种子，成熟额外 1 个产物及原版小麦概率的奖励种子（含时运）；可通过 `loot()` 替换。
+
+需要马铃薯式的产物自种时，可使用 `selfSeeded()`：
+
+```java
+public static final SimpleCropEntry GARLIC = CONTENT.crops().createSimple("garlic")
+    .displayName("en_us", "Garlic")
+    .selfSeeded()
+    .produce(item -> item.displayName("en_us", "Garlic"))
+    .loot(CropLootTables.crop().seeds(1).produce(1, 3, true).bonusSeeds(0).build())
+    .register();
+```
+
+此时只生成 `garlic` 物品，`seed()` 与 `produce()` 指向同一可种植物品，不生成 `garlic_seeds`。
+食物等属性在 `produce(...)` 回调里配置；不能再设置独立种子或引用已有产物。
+原来单独注册的同名普通物品应移除，避免 ID 冲突。`seeds(1)` 保底掉落和成熟的 `produce(...)` 数量会相加。
 
 `SimpleCropEntry` 提供 `block()`、`seed()`、`produce()` 延迟引用，没有上部方块。
 元数据从 `CONTENT.simpleCropDefinitions()` 读取，现有模型、掉落、标签和语言 provider 已支持。
@@ -137,6 +152,54 @@ CONTENT.crops().create("cabbage")
 掉落通过原生 loot table 处理，并应用爆炸衰减。创造破坏整株不会触发另一半的额外掉落。
 
 本模组不包含右键收获功能。
+
+## 自定义掉落表
+
+`create()` 和 `createSimple()` 都支持 `.loot(CropLootFactory)`，使用
+`net.aquiferic.diversitycore.api.loot` 包中的接口和工厂。不调用时保持上述默认掉落。
+调用后完整替换默认表；`produceCount()` 和 `bonusSeedTrials()` 不再参与生成，不受调用顺序影响。
+重复调用 `loot()` 时最后一次生效，提交注册后不可修改。
+
+```java
+CONTENT.crops().createSimple("tomato")
+    .produce(ModItems.TOMATO)
+    .loot(CropLootTables.crop()
+        .produce(2, 4)  // 成熟收获部位均匀随机掉落 2–4 个产物，包含两端
+        .seeds(1)      // 任意年龄的根部固定返还 1 粒种子
+        .bonusSeeds(0) // 禁用成熟奖励种子
+        .build())
+    .register();
+```
+
+工厂默认 `produce(1)`、`seeds(1)`、`bonusSeeds(3)`，与原有默认规则一致。
+`produce(count)` / `seeds(count)` 设置固定数量，双参数重载设置包含两端的均匀随机数量。
+产物可通过 `produce(count, boolean fortune)` 或 `produce(min, max, boolean fortune)`
+控制是否受时运影响；省略布尔参数等同于 `false`。
+例如 `produce(2, 4, true)` 先随机取 2–4，再按原生 `uniform_bonus_count` 规则增加
+0 到时运等级个产物（时运 III 时总量为 2–7）。没有时运或没有工具时保持基础数量。
+时运仅作用于成熟产物，不改变基础种子、奖励种子或成熟条件；`produce(0, true)` 仍关闭产物掉落。
+再次调用任何 `produce(...)` 重载都会替换数量和开关，旧重载会将开关重置为 `false`。
+数量范围为 0 到 `Item.ABSOLUTE_MAX_STACK_SIZE`；0 可关闭对应基础掉落。
+`seeds(0)` 不会关闭独立的成熟奖励种子，需另设 `bonusSeeds(0)`；奖励种子保留原版概率和时运加成。
+`build()` 对当前配置取快照，可复用到不同作物；之后修改工厂 builder 不会影响已构建的工厂。
+工厂处理单格及两格作物，并保留爆炸衰减；`CropLootTables.empty()` 可令植株无掉落。
+
+复杂规则可直接返回新的原生 `LootTable.Builder`，例如任意年龄掉落钻石：
+
+```java
+.loot(context -> LootTable.lootTable()
+    .withPool(LootPool.lootPool()
+        .setRolls(ContextIntProviders.exactly(1))
+        .add(LootItem.lootTableItem(Items.DIAMOND))))
+```
+
+回调仅在 `runData` 时执行，每个方块部位执行一次，应每次返回新的非 null builder。
+`CropLootContext` 提供当前方块、种子、产物、注册表查询、年龄属性、最大年龄和 `tall` / `upper` 标志。
+`mature()` 创建当前部位的成熟条件；没有年龄属性的上部视为成熟。
+`seedPart()` 表示应产出基础种子的根部，`harvestPart()` 表示单格植株或两格作物的上部。
+原生回调不会自动追加默认种子、成熟条件或爆炸函数；这些由回调自行配置。
+provider 将表类型设为 `BLOCK`，并按当前方块的掉落表 ID 输出到 `src/generated/resources`。
+修改声明后先运行 `runData`，再构建；不要手动修改生成的 JSON。
 
 ## 验证
 
