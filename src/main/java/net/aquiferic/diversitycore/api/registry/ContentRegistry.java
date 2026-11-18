@@ -34,6 +34,7 @@ public final class ContentRegistry {
     private final Items items = new Items();
     private final Blocks blocks = new Blocks();
     private final Crops crops = new Crops();
+    private final ContentTags tags = new ContentTags(this);
     private final List<CropDefinition> cropDefinitions = new ArrayList<>();
     private final List<SimpleCropDefinition> simpleCropDefinitions = new ArrayList<>();
     private final Set<String> itemNames = new HashSet<>();
@@ -57,6 +58,8 @@ public final class ContentRegistry {
     }
 
     public Crops crops() { return crops; }
+
+    public ContentTags tags() { return tags; }
 
     public List<CropDefinition> cropDefinitions() { return List.copyOf(cropDefinitions); }
     public List<SimpleCropDefinition> simpleCropDefinitions() { return List.copyOf(simpleCropDefinitions); }

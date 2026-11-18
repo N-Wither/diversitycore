@@ -253,6 +253,10 @@ tasks.register('verifyContentApi') {
                 ['diversitycore_verification:custom_item', 'diversitycore_verification:cube'])
         verifyTag('c', 'block', 'verification/shared', ['diversitycore_verification:cube'])
         verifyTag('c', 'item', 'verification', ['diversitycore_verification:custom_item'])
+        verifyTag('c', 'item', 'verification/direct',
+                ['minecraft:stick', [id: 'absent_mod:external_item', required: false]])
+        verifyTag('c', 'block', 'verification/direct',
+                ['minecraft:stone', [id: 'absent_mod:external_block', required: false]])
         assert !new File(dataDirectory, 'diversitycore_verification/tags/block/item_only.json').exists()
         assert !new File(dataDirectory, 'diversitycore_verification/tags/item/block_only.json').exists()
     }

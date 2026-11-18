@@ -7,7 +7,9 @@ import net.aquiferic.diversitycore.api.registry.ContentRegistry;
 import net.aquiferic.diversitycore.registry.ModTags;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.data.PackOutput;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.common.data.BlockTagsProvider;
@@ -22,6 +24,12 @@ public final class ModBlockTagsProvider extends BlockTagsProvider {
 
     @Override
     protected void addTags(HolderLookup.Provider registries) {
+        for (var entry : content.tags().blockEntries()) {
+            var appender = tag(entry.tag());
+            var key = ResourceKey.create(Registries.BLOCK, entry.id());
+            if (entry.required()) appender.add(key);
+            else appender.addOptional(key);
+        }
         if (DiversityCore.MODID.equals(content.namespace())) {
             // Emit the public opt-in tag even before any blocks declare membership.
             tag(ModTags.WRENCH_BREAKABLE);

@@ -50,10 +50,16 @@ public final class ContentRegistryVerification {
             .tagBoth("c:verification/shared")
             .register();
         registered.blocks().create("hidden").noItem().tag("diversitycore_verification:block_only").register();
+        var itemTag = registered.tags().item("c:verification/direct");
+        itemTag.addOptional("minecraft:stick", "absent_mod:external_item")
+            .add("minecraft:stick").addOptional("minecraft:stick", "absent_mod:external_item");
+        registered.tags().block("c:verification/direct")
+            .add("minecraft:stone").addOptional("absent_mod:external_block");
         CropVerification.register(bus, registered);
         RecipeVerification.register(bus, registered);
         var unfinished = registered.items().create("late");
         registered.register(bus);
+        expect(IllegalStateException.class, () -> itemTag.add("minecraft:apple"));
         expect(IllegalStateException.class, () -> registered.items().create("late"));
         expect(IllegalStateException.class, unfinished::register);
         expect(IllegalStateException.class, () -> registered.register(bus));

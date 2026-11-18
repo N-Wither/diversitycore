@@ -121,6 +121,19 @@ public static final DeferredBlock<Block> HIDDEN_MARKER =
 
 `TagKey` 重载也会校验 ID 和目标注册表；物品标签与方块标签不能混用。可使用 `QS.itt("c:tools/hammer")` 或 `QS.blt("minecraft:mineable/pickaxe")` 创建经过校验的标签键。重复添加同一标签会去重，生成的标签文件采用追加语义，不替换其他数据包中的成员。
 
+也可以按 ID 直接向指定标签添加已有内容。声明应放在 `CONTENT.register(bus)` 之前。
+
+```java
+CONTENT.tags().item("c:crops/rice_panicle")
+    .add("your_mod:rice_panicle")
+    .addOptional("farmersdelight:rice_panicle");
+CONTENT.tags().block("your_mod:machine_bases").add("minecraft:iron_block");
+```
+
+`item()` 和 `block()` 也接受对应注册表的 `TagKey`。`addOptional()` 适用于可选依赖，
+目标内容不存在时游戏会跳过该条目。两种方法均可一次传入多个 ID，只写入指定的标签。
+现有的 `ModItemTagsProvider` 和 `ModBlockTagsProvider` 会在 `runData` 时输出这些声明。
+
 ## 自定义物品和方块类型
 
 `create(path, factory)` 接收使用原生属性对象的工厂，保留具体类型：
